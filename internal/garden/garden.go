@@ -34,7 +34,7 @@ type Garden struct {
 	cacheTimeout time.Duration
 
 	mu      sync.RWMutex
-	flowers map[string]*Flower
+	flowers map[string]*Feed
 }
 
 type Database interface {
@@ -51,7 +51,7 @@ func New(store Database, options Options) *Garden {
 	g := &Garden{
 		store:        store,
 		cacheTimeout: options.Refresh,
-		flowers:      map[string]*Flower{},
+		flowers:      map[string]*Feed{},
 	}
 
 	return g
@@ -115,7 +115,7 @@ func (g *Garden) Add(uri string) error {
 		return errors.New("already added uri")
 	}
 
-	flower, err := NewFlower(g.store, g.cacheTimeout, uri)
+	flower, err := NewFeed(g.store, g.cacheTimeout, uri)
 	if err != nil {
 		return err
 	}

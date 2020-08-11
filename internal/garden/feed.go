@@ -8,20 +8,17 @@ import (
 
 	"golang.org/x/net/html/charset"
 	"hawx.me/code/arboretum/internal/data"
-	"hawx.me/code/arboretum/internal/gardenjs"
 	"hawx.me/code/riviera/feed"
 	"hawx.me/code/riviera/feed/common"
 	"hawx.me/code/riviera/river/mapping"
 )
 
-type Flower struct {
+type Feed struct {
 	uri    *url.URL
 	feed   *feed.Feed
 	client *http.Client
 	quit   chan struct{}
 	db     Database
-
-	items gardenjs.Feed
 }
 
 type dbWrapper struct {
@@ -33,13 +30,13 @@ func (d *dbWrapper) Contains(key string) bool {
 	return d.db.Contains(d.uri, key)
 }
 
-func NewFlower(db Database, cacheTimeout time.Duration, uri string) (*Flower, error) {
+func NewFeed(db Database, cacheTimeout time.Duration, uri string) (*Feed, error) {
 	parsedURI, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &Flower{
+	f := &Feed{
 		uri:    parsedURI,
 		client: http.DefaultClient,
 		quit:   make(chan struct{}),
@@ -51,11 +48,7 @@ func NewFlower(db Database, cacheTimeout time.Duration, uri string) (*Flower, er
 	return f, nil
 }
 
-func (f *Flower) Latest() gardenjs.Feed {
-	return f.items
-}
-
-func (f *Flower) Start() {
+func (f *Feed) Start() {
 	go func() {
 		log.Println("started fetching", f.uri)
 		code, err := f.feed.Fetch(f.uri.String(), f.client, charset.NewReaderLabel)
@@ -81,12 +74,12 @@ func (f *Flower) Start() {
 	}()
 }
 
-func (f *Flower) Stop() {
+func (f *Feed) Stop() {
 	f.quit <- struct{}{}
 	<-f.quit
 }
 
-func (f *Flower) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*common.Item) {
+func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*common.Item) {
 	if len(newitems) == 0 {
 		return
 	}
@@ -119,7 +112,7 @@ func (f *Flower) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*co
 		}
 	}
 
-	log.Println("updating feed")
+	log.Println("updating feed", feedURL)
 	if err := f.db.UpdateFeed(data.Feed{
 		FeedURL:     feedURL,
 		WebsiteURL:  websiteURL,
