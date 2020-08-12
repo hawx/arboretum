@@ -14,11 +14,11 @@
 package garden
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"io"
+	"log"
 	"sort"
-	"sync"
 	"time"
 
 	"hawx.me/code/arboretum/internal/data"
@@ -33,8 +33,9 @@ type Garden struct {
 	store        Database
 	cacheTimeout time.Duration
 
-	mu      sync.RWMutex
-	flowers map[string]*Feed
+	added   chan string
+	removed chan string
+	flowers map[string]context.CancelFunc
 }
 
 type Database interface {
@@ -51,7 +52,9 @@ func New(store Database, options Options) *Garden {
 	g := &Garden{
 		store:        store,
 		cacheTimeout: options.Refresh,
-		flowers:      map[string]*Feed{},
+		flowers:      map[string]context.CancelFunc{},
+		added:        make(chan string),
+		removed:      make(chan string),
 	}
 
 	return g
@@ -108,38 +111,49 @@ func (g *Garden) Encode(w io.Writer) error {
 }
 
 func (g *Garden) Add(uri string) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	if _, exists := g.flowers[uri]; exists {
-		return errors.New("already added uri")
-	}
-
-	flower, err := NewFeed(g.store, g.cacheTimeout, uri)
-	if err != nil {
-		return err
-	}
-	flower.Start()
-
-	g.flowers[uri] = flower
+	g.added <- uri
 	return nil
 }
 
 func (g *Garden) Remove(uri string) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	if flower, exists := g.flowers[uri]; exists {
-		flower.Stop()
-		delete(g.flowers, uri)
-	}
-
+	g.removed <- uri
 	return nil
 }
 
-func (g *Garden) Close() error {
-	for _, flower := range g.flowers {
-		flower.Stop()
+func (g *Garden) Run(ctx context.Context) {
+	for {
+		select {
+		case uri := <-g.added:
+			if _, ok := g.flowers[uri]; ok {
+				log.Println("already added", uri)
+				continue
+			}
+
+			flower, err := NewFeed(g.store, g.cacheTimeout, uri)
+			if err != nil {
+				log.Printf("error adding %s: %v\n", uri, err)
+				continue
+			}
+
+			childCtx, cancel := context.WithCancel(ctx)
+			g.flowers[uri] = cancel
+
+			go func() {
+				flower.Run(childCtx)
+			}()
+
+		case uri := <-g.removed:
+			cancel, ok := g.flowers[uri]
+			if !ok {
+				log.Println("no such feed", uri)
+				continue
+			}
+
+			cancel()
+			delete(g.flowers, uri)
+
+		case <-ctx.Done():
+			return
+		}
 	}
-	return nil
 }

@@ -1,6 +1,7 @@
 package garden
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,7 +18,6 @@ type Feed struct {
 	uri    *url.URL
 	feed   *feed.Feed
 	client *http.Client
-	quit   chan struct{}
 	db     Database
 }
 
@@ -39,7 +39,6 @@ func NewFeed(db Database, cacheTimeout time.Duration, uri string) (*Feed, error)
 	f := &Feed{
 		uri:    parsedURI,
 		client: http.DefaultClient,
-		quit:   make(chan struct{}),
 		db:     db,
 	}
 
@@ -48,35 +47,25 @@ func NewFeed(db Database, cacheTimeout time.Duration, uri string) (*Feed, error)
 	return f, nil
 }
 
-func (f *Feed) Start() {
-	go func() {
-		log.Println("started fetching", f.uri)
-		code, err := f.feed.Fetch(f.uri.String(), f.client, charset.NewReaderLabel)
-		if err != nil {
-			log.Printf("error fetching %s: %d %s\n", f.uri, code, err)
+func (f *Feed) Run(ctx context.Context) {
+	f.fetch()
+
+	for {
+		select {
+		case <-time.After(f.feed.DurationTillUpdate()):
+			f.fetch()
+
+		case <-ctx.Done():
+			return
 		}
-
-	loop:
-		for {
-			select {
-			case <-time.After(f.feed.DurationTillUpdate()):
-				code, err := f.feed.Fetch(f.uri.String(), f.client, charset.NewReaderLabel)
-				if err != nil {
-					log.Printf("error fetching %s: %d %s\n", f.uri, code, err)
-				}
-
-			case <-f.quit:
-				break loop
-			}
-		}
-
-		close(f.quit)
-	}()
+	}
 }
 
-func (f *Feed) Stop() {
-	f.quit <- struct{}{}
-	<-f.quit
+func (f *Feed) fetch() {
+	code, err := f.feed.Fetch(f.uri.String(), f.client, charset.NewReaderLabel)
+	if err != nil {
+		log.Printf("error fetching %s: %d %s\n", f.uri, code, err)
+	}
 }
 
 func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*common.Item) {

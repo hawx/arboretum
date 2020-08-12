@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"html/template"
@@ -175,7 +176,13 @@ func main() {
 	garden := garden.New(db, garden.Options{
 		Refresh: cacheTimeout,
 	})
-	defer garden.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		garden.Run(ctx)
+	}()
 
 	gardenSubs := db.Subscriptions("garden")
 	if err = addSubs(gardenSubs, garden); err != nil {
