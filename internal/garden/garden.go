@@ -1,16 +1,4 @@
-// Package garden aggregates feeds into a gardenjs file.
-//
-// That format doesn't exist, yet, the purpose of this is to define it. The idea
-// is to have something similiar/exactly the same as fraidycat does: a list of
-// feeds ordered by most recently updated, with a compact list of recent items
-// for each feed.
-//
-// This can and will co-exist nicely with rivers because they each solve
-// different problems. A garden is for friends, a river is for things you don't
-// mind missing. Neither are the dreaded inbox with all of the management of
-// read status, etc.
-//
-// Hopefully this works out as nicely as I think it will.
+// Package garden aggregates feeds.
 package garden
 
 import (
@@ -35,7 +23,7 @@ type Garden struct {
 
 	added   chan string
 	removed chan string
-	flowers map[string]context.CancelFunc
+	feeds   map[string]context.CancelFunc
 }
 
 type Database interface {
@@ -52,7 +40,7 @@ func New(store Database, options Options) *Garden {
 	g := &Garden{
 		store:        store,
 		cacheTimeout: options.Refresh,
-		flowers:      map[string]context.CancelFunc{},
+		feeds:        map[string]context.CancelFunc{},
 		added:        make(chan string),
 		removed:      make(chan string),
 	}
@@ -67,7 +55,7 @@ func (g *Garden) Latest() (gardenjs.Garden, error) {
 		},
 	}
 
-	for uri, _ := range g.flowers {
+	for uri, _ := range g.feeds {
 		feed, err := g.store.Read(uri)
 		if err != nil {
 			return gardenjs.Garden{}, err
@@ -124,33 +112,33 @@ func (g *Garden) Run(ctx context.Context) {
 	for {
 		select {
 		case uri := <-g.added:
-			if _, ok := g.flowers[uri]; ok {
+			if _, ok := g.feeds[uri]; ok {
 				log.Println("already added", uri)
 				continue
 			}
 
-			flower, err := NewFeed(g.store, g.cacheTimeout, uri)
+			feed, err := NewFeed(g.store, g.cacheTimeout, uri)
 			if err != nil {
 				log.Printf("error adding %s: %v\n", uri, err)
 				continue
 			}
 
 			childCtx, cancel := context.WithCancel(ctx)
-			g.flowers[uri] = cancel
+			g.feeds[uri] = cancel
 
 			go func() {
-				flower.Run(childCtx)
+				feed.Run(childCtx)
 			}()
 
 		case uri := <-g.removed:
-			cancel, ok := g.flowers[uri]
+			cancel, ok := g.feeds[uri]
 			if !ok {
 				log.Println("no such feed", uri)
 				continue
 			}
 
 			cancel()
-			delete(g.flowers, uri)
+			delete(g.feeds, uri)
 
 		case <-ctx.Done():
 			return
