@@ -18,19 +18,10 @@ type Feed struct {
 	uri    *url.URL
 	feed   *feed.Feed
 	client *http.Client
-	db     Database
+	db     DB
 }
 
-type dbWrapper struct {
-	db  Database
-	uri string
-}
-
-func (d *dbWrapper) Contains(key string) bool {
-	return d.db.Contains(d.uri, key)
-}
-
-func NewFeed(db Database, cacheTimeout time.Duration, uri string) (*Feed, error) {
+func NewFeed(db DB, cacheTimeout time.Duration, uri string) (*Feed, error) {
 	parsedURI, err := url.Parse(uri)
 	if err != nil {
 		return nil, err

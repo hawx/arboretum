@@ -3,46 +3,29 @@ package garden
 
 import (
 	"context"
-	"encoding/json"
-	"io"
 	"log"
 	"sort"
 	"time"
 
-	"hawx.me/code/arboretum/internal/data"
 	"hawx.me/code/arboretum/internal/gardenjs"
 )
 
-type Options struct {
-	Refresh time.Duration
-}
-
 type Garden struct {
-	store        Database
-	cacheTimeout time.Duration
+	db      DB
+	refresh time.Duration
 
 	added   chan string
 	removed chan string
 	feeds   map[string]context.CancelFunc
 }
 
-type Database interface {
-	Contains(uri, key string) bool
-	Read(uri string) (data.Feed, error)
-	UpdateFeed(data.Feed) error
-}
-
-func New(store Database, options Options) *Garden {
-	if options.Refresh <= 0 {
-		options.Refresh = time.Hour
-	}
-
+func New(store DB, refresh time.Duration) *Garden {
 	g := &Garden{
-		store:        store,
-		cacheTimeout: options.Refresh,
-		feeds:        map[string]context.CancelFunc{},
-		added:        make(chan string),
-		removed:      make(chan string),
+		db:      store,
+		refresh: refresh,
+		feeds:   map[string]context.CancelFunc{},
+		added:   make(chan string),
+		removed: make(chan string),
 	}
 
 	return g
@@ -56,7 +39,7 @@ func (g *Garden) Latest() (gardenjs.Garden, error) {
 	}
 
 	for uri, _ := range g.feeds {
-		feed, err := g.store.Read(uri)
+		feed, err := g.db.Read(uri)
 		if err != nil {
 			return gardenjs.Garden{}, err
 		}
@@ -89,15 +72,6 @@ func (g *Garden) Latest() (gardenjs.Garden, error) {
 	return garden, nil
 }
 
-func (g *Garden) Encode(w io.Writer) error {
-	latest, err := g.Latest()
-	if err != nil {
-		return err
-	}
-
-	return json.NewEncoder(w).Encode(latest)
-}
-
 func (g *Garden) Add(uri string) error {
 	g.added <- uri
 	return nil
@@ -117,7 +91,7 @@ func (g *Garden) Run(ctx context.Context) {
 				continue
 			}
 
-			feed, err := NewFeed(g.store, g.cacheTimeout, uri)
+			feed, err := NewFeed(g.db, g.refresh, uri)
 			if err != nil {
 				log.Printf("error adding %s: %v\n", uri, err)
 				continue

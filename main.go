@@ -165,7 +165,12 @@ func main() {
 		return
 	}
 
-	log.Println("opening db at", *dbPath)
+	templates, err := parseTemplates(*webPath)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	db, err := data.Open(*dbPath)
 	if err != nil {
 		log.Println(err)
@@ -173,9 +178,7 @@ func main() {
 	}
 	defer db.Close()
 
-	garden := garden.New(db, garden.Options{
-		Refresh: cacheTimeout,
-	})
+	garden := garden.New(db, cacheTimeout)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -187,12 +190,6 @@ func main() {
 	gardenSubs := db.Subscriptions("garden")
 	if err = addSubs(gardenSubs, garden); err != nil {
 		log.Println(err)
-		return
-	}
-
-	templates, err := parseTemplates(*webPath)
-	if err != nil {
-		fmt.Println(err)
 		return
 	}
 
