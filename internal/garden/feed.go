@@ -74,7 +74,7 @@ func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*comm
 			converted.PermaLink = maybeResolvedLink(f.uri, converted.PermaLink)
 
 			items[i] = data.FeedItem{
-				Key:       converted.PermaLink,
+				Key:       item.Key(),
 				PermaLink: converted.PermaLink,
 				PubDate:   converted.PubDate.Add(0),
 				Title:     converted.Title,
@@ -94,12 +94,11 @@ func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*comm
 
 	log.Println("updating feed", feedURL)
 	if err := f.db.UpdateFeed(data.Feed{
-		FeedURL:     feedURL,
-		WebsiteURL:  websiteURL,
-		Title:       ch.Title,
-		Description: ch.Description,
-		UpdatedAt:   time.Now(),
-		Items:       items,
+		URL:        feedURL,
+		WebsiteURL: websiteURL,
+		Title:      ch.Title,
+		UpdatedAt:  time.Now(),
+		Items:      items,
 	}); err != nil {
 		log.Println(err)
 	}

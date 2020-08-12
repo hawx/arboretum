@@ -12,37 +12,19 @@ import (
 )
 
 type Feed struct {
-	FeedURL     string
-	WebsiteURL  string
-	Title       string
-	Description string
-	UpdatedAt   time.Time
-	Items       []FeedItem
+	URL        string
+	WebsiteURL string
+	Title      string
+	UpdatedAt  time.Time
+	Items      []FeedItem
 }
 
 type FeedItem struct {
-	Key        string
-	PermaLink  string
-	PubDate    time.Time
-	Title      string
-	Link       string
-	Body       string
-	ID         string
-	Comments   string
-	Enclosures []FeedItemEnclosure
-	Thumbnails []FeedItemThumbnail
-}
-
-type FeedItemEnclosure struct {
-	URL    string
-	Type   string
-	Length int
-}
-
-type FeedItemThumbnail struct {
-	URL    string
-	Height int
-	Width  int
+	Key       string
+	PermaLink string
+	PubDate   time.Time
+	Title     string
+	Link      string
 }
 
 type DB struct {
@@ -62,23 +44,10 @@ func Open(path string) (*DB, error) {
 
 func (d *DB) migrate() error {
 	_, err := d.db.Exec(`
-    CREATE TABLE IF NOT EXISTS keys (
-      Bucket TEXT,
-      Key TEXT,
-      PRIMARY KEY (Bucket, Key)
-    );
-
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      FeedURL    TEXT,
-      Name       TEXT,
-      PRIMARY KEY (FeedURL, Name)
-    );
-
     CREATE TABLE IF NOT EXISTS feeds (
-      FeedURL     TEXT PRIMARY KEY,
+      URL         TEXT PRIMARY KEY,
       WebsiteURL  TEXT,
       Title       TEXT,
-      Description TEXT,
       UpdatedAt   DATETIME
     );
 
@@ -89,26 +58,7 @@ func (d *DB) migrate() error {
       PubDate   DATETIME,
       Title     TEXT,
       Link      TEXT,
-      Body      TEXT,
-      ID        TEXT,
-      Comments  TEXT,
       PRIMARY KEY (Key, FeedURL)
-    );
-
-    CREATE TABLE IF NOT EXISTS enclosures (
-      ID      INTEGER PRIMARY KEY AUTOINCREMENT,
-      ItemKey TEXT,
-      URL     TEXT,
-      Type    TEXT,
-      Length  INTEGER
-    );
-
-    CREATE TABLE IF NOT EXISTS thumbnails (
-      ID      INTEGER PRIMARY KEY AUTOINCREMENT,
-      ItemKey TEXT,
-      URL     TEXT,
-      Height  INTEGER,
-      Width   INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS feedFetches (
@@ -119,7 +69,6 @@ func (d *DB) migrate() error {
     );
 `)
 
-	log.Println("migrated")
 	return err
 }
 
@@ -128,18 +77,18 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) Read(uri string) (feed Feed, err error) {
-	row := d.db.QueryRow("SELECT WebsiteURL, Title, Description, UpdatedAt FROM feeds WHERE FeedURL = ?",
+	row := d.db.QueryRow("SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ?",
 		uri)
 
-	feed.FeedURL = uri
-	if err = row.Scan(&feed.WebsiteURL, &feed.Title, &feed.Description, &feed.UpdatedAt); err != nil {
+	feed.URL = uri
+	if err = row.Scan(&feed.WebsiteURL, &feed.Title, &feed.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return feed, nil
 		}
 		return feed, fmt.Errorf("scanning feed row: %w", err)
 	}
 
-	rows, err := d.db.Query(`SELECT Key, PermaLink, PubDate, Title, Link, Body, ID, Comments
+	rows, err := d.db.Query(`SELECT Key, PermaLink, PubDate, Title, Link
                            FROM feedItems
                            WHERE FeedURL = ?
                            ORDER BY PubDate DESC
@@ -152,11 +101,10 @@ func (d *DB) Read(uri string) (feed Feed, err error) {
 
 	for rows.Next() {
 		var item FeedItem
-		if err = rows.Scan(&item.Key, &item.PermaLink, &item.PubDate, &item.Title, &item.Link, &item.Body, &item.ID, &item.Comments); err != nil {
+		if err = rows.Scan(&item.Key, &item.PermaLink, &item.PubDate, &item.Title, &item.Link); err != nil {
 			return feed, fmt.Errorf("scanning feedItems row: %w", err)
 		}
 
-		// TODO: enclosures and thumbnails
 		feed.Items = append(feed.Items, item)
 	}
 
@@ -180,55 +128,28 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 		}
 	}()
 
-	_, err = tx.Exec(`REPLACE INTO feeds (WebsiteURL, Title, Description, UpdatedAt, FeedURL)
-                                VALUES (?,          ?,     ?,           ?,         ?)`,
+	_, err = tx.Exec(`REPLACE INTO feeds (URL, WebsiteURL, Title, UpdatedAt)
+                                VALUES (?,   ?,          ?,     ?)`,
+		feed.URL,
 		feed.WebsiteURL,
 		feed.Title,
-		feed.Description,
-		feed.UpdatedAt,
-		feed.FeedURL)
+		feed.UpdatedAt)
 	if err != nil {
 		return err
 	}
 
+	stmt, err := tx.Prepare(`INSERT INTO feedItems (Key, FeedURL, PermaLink, PubDate, Title, Link)
+                                          VALUES (?,   ?,       ?,         ?,       ?,     ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
 	for _, item := range feed.Items {
-		_, err = tx.Exec(`INSERT INTO feedItems (Key, FeedURL, PermaLink, PubDate, Title, Link, Body, ID, Comments)
-                                     VALUES (?,   ?,       ?,         ?,       ?,     ?,    ?,    ?,  ?)`,
-			item.Key,
-			feed.FeedURL,
-			item.PermaLink,
-			item.PubDate,
-			item.Title,
-			item.Link,
-			item.Body,
-			item.ID,
-			item.Comments)
+		_, err = stmt.Exec(item.Key, feed.URL, item.PermaLink, item.PubDate, item.Title, item.Link)
 		if err != nil {
+			log.Println(item.Key)
 			return err
-		}
-
-		for _, enclosure := range item.Enclosures {
-			_, err = tx.Exec(`INSERT INTO enclosures (ItemKey, URL, Type, Length)
-                                        VALUES (?,       ?,   ?,    ?)`,
-				item.Key,
-				enclosure.URL,
-				enclosure.Type,
-				enclosure.Length)
-			if err != nil {
-				return err
-			}
-		}
-
-		for _, thumbnail := range item.Thumbnails {
-			_, err = tx.Exec(`INSERT INTO thumbnails (ItemKey, URL, Height, Width)
-                                        VALUES (?,       ?,   ?,      ?)`,
-				item.Key,
-				thumbnail.URL,
-				thumbnail.Height,
-				thumbnail.Width)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -247,4 +168,41 @@ func (d *DB) Contains(uri, key string) bool {
 	}
 
 	return true
+}
+
+func (d *DB) Subscribe(uri string) error {
+	_, err := d.db.Exec("INSERT OR IGNORE INTO feeds (URL) VALUES (?)",
+		uri)
+
+	return err
+}
+
+func (d *DB) Unsubscribe(uri string) error {
+	_, err := d.db.Exec("DELETE FROM feedItems WHERE FeedURL = ?", uri)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.db.Exec("DELETE FROM feeds WHERE URL = ?", uri)
+
+	return err
+}
+
+func (d *DB) Subscriptions() (list []string, err error) {
+	rows, err := d.db.Query("SELECT URL FROM feeds")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var uri string
+		if err = rows.Scan(&uri); err != nil {
+			return
+		}
+		list = append(list, uri)
+	}
+
+	err = rows.Err()
+	return
 }

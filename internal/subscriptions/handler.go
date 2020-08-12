@@ -5,16 +5,12 @@ import (
 	"net/http"
 )
 
-type Add interface {
-	Add(string) error
-}
-
-func AddHandler(subs ...Add) http.HandlerFunc {
+func Add(subs ...interface{ Subscribe(string) error }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uri := r.FormValue("url")
 
 		for _, sub := range subs {
-			if err := sub.Add(uri); err != nil {
+			if err := sub.Subscribe(uri); err != nil {
 				log.Println(err)
 			}
 		}
@@ -24,16 +20,12 @@ func AddHandler(subs ...Add) http.HandlerFunc {
 	}
 }
 
-type Remove interface {
-	Remove(string) error
-}
-
-func RemoveHandler(subs ...Remove) http.HandlerFunc {
+func Remove(subs ...interface{ Unsubscribe(string) error }) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uri := r.FormValue("url")
 
 		for _, sub := range subs {
-			if err := sub.Remove(uri); err != nil {
+			if err := sub.Unsubscribe(uri); err != nil {
 				log.Println(err)
 			}
 		}

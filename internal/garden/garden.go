@@ -72,12 +72,12 @@ func (g *Garden) Latest() (gardenjs.Garden, error) {
 	return garden, nil
 }
 
-func (g *Garden) Add(uri string) error {
+func (g *Garden) Subscribe(uri string) error {
 	g.added <- uri
 	return nil
 }
 
-func (g *Garden) Remove(uri string) error {
+func (g *Garden) Unsubscribe(uri string) error {
 	g.removed <- uri
 	return nil
 }

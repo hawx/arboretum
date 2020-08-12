@@ -51,14 +51,14 @@ func printHelp() {
       Serve at given socket, instead.`)
 }
 
-func addSubs(from interface{ List() ([]string, error) }, to interface{ Add(string) error }) error {
-	subs, err := from.List()
+func addSubs(from interface{ Subscriptions() ([]string, error) }, to interface{ Subscribe(string) error }) error {
+	subs, err := from.Subscriptions()
 	if err != nil {
 		return err
 	}
 
 	for _, sub := range subs {
-		if err := to.Add(sub); err != nil {
+		if err := to.Subscribe(sub); err != nil {
 			log.Println(err)
 		}
 	}
@@ -103,10 +103,9 @@ func importOpml(path, dbPath string) (int, error) {
 	}
 	defer db.Close()
 
-	riverSubs := db.Subscriptions("river")
 	oks := 0
 	for _, item := range doc.Body.Outline {
-		if err := riverSubs.Add(item.XMLURL); err != nil {
+		if err := db.Subscribe(item.XMLURL); err != nil {
 			log.Printf("error adding %s: %v\n", item.XMLURL, err)
 		} else {
 			oks++
@@ -187,8 +186,7 @@ func main() {
 		garden.Run(ctx)
 	}()
 
-	gardenSubs := db.Subscriptions("garden")
-	if err = addSubs(gardenSubs, garden); err != nil {
+	if err = addSubs(db, garden); err != nil {
 		log.Println(err)
 		return
 	}
@@ -201,10 +199,10 @@ func main() {
 		http.FileServer(http.Dir(*webPath+"/static"))))
 
 	http.HandleFunc("/remove", session.Shield(
-		subscriptions.RemoveHandler(gardenSubs, garden)))
+		subscriptions.Remove(db, garden)))
 
 	http.HandleFunc("/add", session.Shield(
-		subscriptions.AddHandler(gardenSubs, garden)))
+		subscriptions.Add(db, garden)))
 
 	http.HandleFunc("/sign-in", session.SignIn())
 	http.HandleFunc("/callback", session.Callback())
