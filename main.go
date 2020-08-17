@@ -22,13 +22,16 @@ import (
 )
 
 func printHelp() {
-	fmt.Println(`Usage: arboretum [options] FILE
+	fmt.Println(`Usage: arboretum [options]
 
   Arboretum is a feed aggregator.
 
    --refresh DUR='2h'
       Time to refresh feeds after. This is the default used, but if
       advice is given in the feed itself it may be ignored.
+
+   --private
+      Prevent showing any feeds when not signed in.
 
    --db PATH=':memory:'
       Use the sqlitedb file at the given path.
