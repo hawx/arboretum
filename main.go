@@ -13,6 +13,7 @@ import (
 
 	"hawx.me/code/arboretum/internal/data"
 	"hawx.me/code/arboretum/internal/garden"
+	"hawx.me/code/arboretum/internal/signin"
 	"hawx.me/code/arboretum/internal/subscriptions"
 	"hawx.me/code/indieauth"
 	"hawx.me/code/indieauth/sessions"
@@ -118,6 +119,7 @@ func importOpml(path, dbPath string) (int, error) {
 func main() {
 	var (
 		refresh = flag.String("refresh", "15m", "")
+		private = flag.Bool("private", false, "")
 
 		dbPath = flag.String("db", ":memory:", "")
 
@@ -191,9 +193,15 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/", session.Choose(
-		garden.Handler(templates, true),
-		garden.Handler(templates, false)))
+	if *private {
+		http.HandleFunc("/", session.Choose(
+			garden.Handler(templates, true),
+			signin.Handler(templates)))
+	} else {
+		http.HandleFunc("/", session.Choose(
+			garden.Handler(templates, true),
+			garden.Handler(templates, false)))
+	}
 
 	http.Handle("/public/", http.StripPrefix("/public",
 		http.FileServer(http.Dir(*webPath+"/static"))))
