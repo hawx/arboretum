@@ -77,7 +77,7 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) Read(uri string) (feed Feed, err error) {
-	row := d.db.QueryRow("SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ?",
+	row := d.db.QueryRow("SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ? AND WebsiteURL IS NOT NULL",
 		uri)
 
 	feed.URL = uri
