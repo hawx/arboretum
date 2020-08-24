@@ -38,14 +38,14 @@ func (g *Garden) Latest() (gardenjs.Garden, error) {
 		},
 	}
 
-	for uri, _ := range g.feeds {
-		feed, err := g.db.Read(uri)
-		if err != nil {
-			return gardenjs.Garden{}, err
-		}
+	feeds, err := g.db.ReadAll()
+	if err != nil {
+		return gardenjs.Garden{}, err
+	}
 
+	for _, feed := range feeds {
 		mapped := gardenjs.Feed{
-			URL:        uri,
+			URL:        feed.URL,
 			WebsiteURL: feed.WebsiteURL,
 			Title:      feed.Title,
 		}

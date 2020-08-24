@@ -76,6 +76,54 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
+func (d *DB) ReadAll() ([]Feed, error) {
+	rows, err := d.db.Query(`SELECT
+                             i.Key, i.PermaLink, i.PubDate, i.Title, i.Link,
+                             f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
+                           FROM feedItems i
+                           JOIN feeds f ON f.URL = i.FeedURL
+                           ORDER BY FeedURL, PubDate DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	feedsMap := map[string]*Feed{}
+
+	for rows.Next() {
+		var (
+			websiteURL, title, feedURL string
+			updatedAt                  time.Time
+			item                       FeedItem
+		)
+		if err = rows.Scan(&item.Key, &item.PermaLink, &item.PubDate, &item.Title, &item.Link, &websiteURL, &title, &updatedAt, &feedURL); err != nil {
+			return nil, fmt.Errorf("scanning row: %w", err)
+		}
+
+		if feed, ok := feedsMap[feedURL]; ok {
+			feed.Items = append(feed.Items, item)
+		} else {
+			feedsMap[feedURL] = &Feed{
+				WebsiteURL: websiteURL,
+				Title:      title,
+				UpdatedAt:  updatedAt,
+				Items:      []FeedItem{item},
+			}
+		}
+	}
+
+	var feeds []Feed
+	for _, feed := range feedsMap {
+		feeds = append(feeds, *feed)
+	}
+
+	if err = rows.Err(); err != nil {
+		return feeds, fmt.Errorf("rows err: %w", err)
+	}
+
+	return feeds, nil
+}
+
 func (d *DB) Read(uri string) (feed Feed, err error) {
 	row := d.db.QueryRow("SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ? AND WebsiteURL IS NOT NULL",
 		uri)

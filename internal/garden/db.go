@@ -5,6 +5,7 @@ import "hawx.me/code/arboretum/internal/data"
 type DB interface {
 	Contains(uri, key string) bool
 	Read(uri string) (data.Feed, error)
+	ReadAll() ([]data.Feed, error)
 	UpdateFeed(data.Feed) error
 }
 
