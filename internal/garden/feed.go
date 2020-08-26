@@ -53,10 +53,12 @@ func (f *Feed) Run(ctx context.Context) {
 }
 
 func (f *Feed) fetch() {
+	log.Printf("started fetching %s\n", f.uri)
 	code, err := f.feed.Fetch(f.uri.String(), f.client, charset.NewReaderLabel)
 	if err != nil {
 		log.Printf("error fetching %s: %d %s\n", f.uri, code, err)
 	}
+	log.Printf("finished fetching %s: %d\n", f.uri, code)
 }
 
 func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*common.Item) {

@@ -3,8 +3,10 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	// register sqlite3 for database/sql
@@ -77,6 +79,7 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) ReadAll() ([]Feed, error) {
+	start := time.Now()
 	rows, err := d.db.Query(`SELECT
                              i.Key, i.PermaLink, i.PubDate, i.Title, i.Link,
                              f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
@@ -87,9 +90,11 @@ func (d *DB) ReadAll() ([]Feed, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	log.Println("got feeds in", time.Now().Sub(start))
 
 	feedsMap := map[string]*Feed{}
 
+	start2 := time.Now()
 	for rows.Next() {
 		var (
 			websiteURL, title, feedURL string
@@ -104,18 +109,24 @@ func (d *DB) ReadAll() ([]Feed, error) {
 			feed.Items = append(feed.Items, item)
 		} else {
 			feedsMap[feedURL] = &Feed{
+				URL:        feedURL,
 				WebsiteURL: websiteURL,
 				Title:      title,
 				UpdatedAt:  updatedAt,
 				Items:      []FeedItem{item},
 			}
 		}
+
+		log.Println("read row in", time.Now().Sub(start2))
+		start2 = time.Now()
 	}
+	log.Println("built feedmap in", time.Now().Sub(start))
 
 	var feeds []Feed
 	for _, feed := range feedsMap {
 		feeds = append(feeds, *feed)
 	}
+	log.Println("built feed list in", time.Now().Sub(start))
 
 	if err = rows.Err(); err != nil {
 		return feeds, fmt.Errorf("rows err: %w", err)
@@ -164,6 +175,10 @@ func (d *DB) Read(uri string) (feed Feed, err error) {
 }
 
 func (d *DB) UpdateFeed(feed Feed) (err error) {
+	if len(feed.Items) == 0 {
+		return nil
+	}
+
 	tx, err := d.db.Begin()
 	if err != nil {
 		return err
@@ -176,12 +191,33 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 		}
 	}()
 
+	row := tx.QueryRow(`SELECT Key FROM feedItems WHERE FeedURL = ? ORDER BY PubDate DESC LIMIT 1`,
+		feed.URL)
+
+	var lastKey string
+	if err := row.Scan(&lastKey); err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	sort.Slice(feed.Items, func(i, j int) bool {
+		return feed.Items[i].PubDate.After(feed.Items[j].PubDate)
+	})
+	if feed.Items[0].Key == lastKey {
+		return errors.New("no update for " + feed.URL)
+	}
+
 	_, err = tx.Exec(`REPLACE INTO feeds (URL, WebsiteURL, Title, UpdatedAt)
                                 VALUES (?,   ?,          ?,     ?)`,
 		feed.URL,
 		feed.WebsiteURL,
 		feed.Title,
 		feed.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`DELETE FROM feedItems WHERE FeedURL = ?`,
+		feed.URL)
 	if err != nil {
 		return err
 	}
@@ -193,7 +229,7 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 	}
 	defer stmt.Close()
 
-	for _, item := range feed.Items {
+	for _, item := range feed.Items[:7] {
 		_, err = stmt.Exec(item.Key, feed.URL, item.PermaLink, item.PubDate, item.Title, item.Link)
 		if err != nil {
 			log.Println(item.Key)
@@ -202,20 +238,6 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 	}
 
 	return nil
-}
-
-func (d *DB) Contains(uri, key string) bool {
-	var v int
-	err := d.db.QueryRow("SELECT 1 FROM feedItems WHERE FeedURL = ? AND Key = ?", uri, key).Scan(&v)
-
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Println("sql contains:", err)
-		}
-		return false
-	}
-
-	return true
 }
 
 func (d *DB) Subscribe(uri string) error {
