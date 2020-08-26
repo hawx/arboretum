@@ -55,14 +55,22 @@ func printHelp() {
       Serve at given socket, instead.`)
 }
 
-func addSubs(from interface{ Subscriptions() ([]string, error) }, to interface{ Subscribe(string) error }) error {
-	subs, err := from.Subscriptions()
+func addSubs(
+	ctx context.Context,
+	from interface {
+		Subscriptions(context.Context) ([]string, error)
+	},
+	to interface {
+		Subscribe(context.Context, string) error
+	},
+) error {
+	subs, err := from.Subscriptions(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, sub := range subs {
-		if err := to.Subscribe(sub); err != nil {
+		if err := to.Subscribe(ctx, sub); err != nil {
 			log.Println(err)
 		}
 	}
@@ -94,7 +102,7 @@ func parseTemplates(path string) (*template.Template, error) {
 	}).ParseGlob(path + "/template/*.gotmpl")
 }
 
-func importOpml(path, dbPath string) (int, error) {
+func importOpml(ctx context.Context, path, dbPath string) (int, error) {
 	doc, err := opml.Load(path)
 	if err != nil {
 		return 0, err
@@ -109,7 +117,7 @@ func importOpml(path, dbPath string) (int, error) {
 
 	oks := 0
 	for _, item := range doc.Body.Outline {
-		if err := db.Subscribe(item.XMLURL); err != nil {
+		if err := db.Subscribe(ctx, item.XMLURL); err != nil {
 			log.Printf("error adding %s: %v\n", item.XMLURL, err)
 		} else {
 			oks++
@@ -120,6 +128,9 @@ func importOpml(path, dbPath string) (int, error) {
 }
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var (
 		refresh = flag.String("refresh", "15m", "")
 		private = flag.Bool("private", false, "")
@@ -142,7 +153,7 @@ func main() {
 		file := flag.Arg(1)
 		fmt.Println("importing ", file)
 
-		n, err := importOpml(file, *dbPath)
+		n, err := importOpml(ctx, file, *dbPath)
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -184,14 +195,11 @@ func main() {
 
 	garden := garden.New(db, cacheTimeout)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	go func() {
 		garden.Run(ctx)
 	}()
 
-	if err = addSubs(db, garden); err != nil {
+	if err = addSubs(ctx, db, garden); err != nil {
 		log.Println(err)
 		return
 	}

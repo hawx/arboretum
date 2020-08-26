@@ -1,11 +1,15 @@
 package garden
 
-import "hawx.me/code/arboretum/internal/data"
+import (
+	"context"
+
+	"hawx.me/code/arboretum/internal/data"
+)
 
 type DB interface {
-	Read(uri string) (data.Feed, error)
-	ReadAll() ([]data.Feed, error)
-	UpdateFeed(data.Feed) error
+	Read(ctx context.Context, uri string) (data.Feed, error)
+	ReadAll(context.Context) ([]data.Feed, error)
+	UpdateFeed(context.Context, data.Feed) error
 }
 
 type dbWrapper struct {

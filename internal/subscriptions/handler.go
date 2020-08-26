@@ -1,16 +1,19 @@
 package subscriptions
 
 import (
+	"context"
 	"log"
 	"net/http"
 )
 
-func Add(subs ...interface{ Subscribe(string) error }) http.HandlerFunc {
+func Add(subs ...interface {
+	Subscribe(context.Context, string) error
+}) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uri := r.FormValue("url")
 
 		for _, sub := range subs {
-			if err := sub.Subscribe(uri); err != nil {
+			if err := sub.Subscribe(r.Context(), uri); err != nil {
 				log.Println(err)
 			}
 		}
@@ -20,12 +23,14 @@ func Add(subs ...interface{ Subscribe(string) error }) http.HandlerFunc {
 	}
 }
 
-func Remove(subs ...interface{ Unsubscribe(string) error }) http.HandlerFunc {
+func Remove(subs ...interface {
+	Unsubscribe(context.Context, string) error
+}) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uri := r.FormValue("url")
 
 		for _, sub := range subs {
-			if err := sub.Unsubscribe(uri); err != nil {
+			if err := sub.Unsubscribe(r.Context(), uri); err != nil {
 				log.Println(err)
 			}
 		}

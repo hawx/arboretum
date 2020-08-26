@@ -19,6 +19,7 @@ type Feed struct {
 	feed   *feed.Feed
 	client *http.Client
 	db     DB
+	ctx    context.Context
 }
 
 func NewFeed(db DB, cacheTimeout time.Duration, uri string) (*Feed, error) {
@@ -39,6 +40,7 @@ func NewFeed(db DB, cacheTimeout time.Duration, uri string) (*Feed, error) {
 }
 
 func (f *Feed) Run(ctx context.Context) {
+	f.ctx = ctx
 	f.fetch()
 
 	for {
@@ -95,7 +97,7 @@ func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*comm
 	}
 
 	log.Println("updating feed", feedURL)
-	if err := f.db.UpdateFeed(data.Feed{
+	if err := f.db.UpdateFeed(f.ctx, data.Feed{
 		URL:        feedURL,
 		WebsiteURL: websiteURL,
 		Title:      ch.Title,

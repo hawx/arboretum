@@ -2,6 +2,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -78,23 +79,20 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
-func (d *DB) ReadAll() ([]Feed, error) {
-	start := time.Now()
-	rows, err := d.db.Query(`SELECT
-                             i.Key, i.PermaLink, i.PubDate, i.Title, i.Link,
-                             f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
-                           FROM feedItems i
-                           JOIN feeds f ON f.URL = i.FeedURL
-                           ORDER BY FeedURL, PubDate DESC`)
+func (d *DB) ReadAll(ctx context.Context) ([]Feed, error) {
+	rows, err := d.db.QueryContext(ctx, `SELECT
+                                         i.Key, i.PermaLink, i.PubDate, i.Title, i.Link,
+                                         f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
+                                       FROM feedItems i
+                                       JOIN feeds f ON f.URL = i.FeedURL
+                                       ORDER BY FeedURL, PubDate DESC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	log.Println("got feeds in", time.Now().Sub(start))
 
 	feedsMap := map[string]*Feed{}
 
-	start2 := time.Now()
 	for rows.Next() {
 		var (
 			websiteURL, title, feedURL string
@@ -116,17 +114,12 @@ func (d *DB) ReadAll() ([]Feed, error) {
 				Items:      []FeedItem{item},
 			}
 		}
-
-		log.Println("read row in", time.Now().Sub(start2))
-		start2 = time.Now()
 	}
-	log.Println("built feedmap in", time.Now().Sub(start))
 
 	var feeds []Feed
 	for _, feed := range feedsMap {
 		feeds = append(feeds, *feed)
 	}
-	log.Println("built feed list in", time.Now().Sub(start))
 
 	if err = rows.Err(); err != nil {
 		return feeds, fmt.Errorf("rows err: %w", err)
@@ -135,8 +128,9 @@ func (d *DB) ReadAll() ([]Feed, error) {
 	return feeds, nil
 }
 
-func (d *DB) Read(uri string) (feed Feed, err error) {
-	row := d.db.QueryRow("SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ? AND WebsiteURL IS NOT NULL",
+func (d *DB) Read(ctx context.Context, uri string) (feed Feed, err error) {
+	row := d.db.QueryRowContext(ctx,
+		"SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ? AND WebsiteURL IS NOT NULL",
 		uri)
 
 	feed.URL = uri
@@ -147,11 +141,12 @@ func (d *DB) Read(uri string) (feed Feed, err error) {
 		return feed, fmt.Errorf("scanning feed row: %w", err)
 	}
 
-	rows, err := d.db.Query(`SELECT Key, PermaLink, PubDate, Title, Link
-                           FROM feedItems
-                           WHERE FeedURL = ?
-                           ORDER BY PubDate DESC
-                           LIMIT 7`,
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT Key, PermaLink, PubDate, Title, Link
+    FROM feedItems
+    WHERE FeedURL = ?
+    ORDER BY PubDate DESC
+    LIMIT 7`,
 		uri)
 	if err != nil {
 		return feed, fmt.Errorf("selecting feedItems: %w", err)
@@ -174,7 +169,7 @@ func (d *DB) Read(uri string) (feed Feed, err error) {
 	return
 }
 
-func (d *DB) UpdateFeed(feed Feed) (err error) {
+func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 	if len(feed.Items) == 0 {
 		return nil
 	}
@@ -191,7 +186,8 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 		}
 	}()
 
-	row := tx.QueryRow(`SELECT Key FROM feedItems WHERE FeedURL = ? ORDER BY PubDate DESC LIMIT 1`,
+	row := tx.QueryRowContext(ctx,
+		`SELECT Key FROM feedItems WHERE FeedURL = ? ORDER BY PubDate DESC LIMIT 1`,
 		feed.URL)
 
 	var lastKey string
@@ -206,8 +202,9 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 		return errors.New("no update for " + feed.URL)
 	}
 
-	_, err = tx.Exec(`REPLACE INTO feeds (URL, WebsiteURL, Title, UpdatedAt)
-                                VALUES (?,   ?,          ?,     ?)`,
+	_, err = tx.ExecContext(ctx,
+		`REPLACE INTO feeds (URL, WebsiteURL, Title, UpdatedAt)
+    VALUES (?,   ?,          ?,     ?)`,
 		feed.URL,
 		feed.WebsiteURL,
 		feed.Title,
@@ -216,7 +213,8 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 		return err
 	}
 
-	_, err = tx.Exec(`DELETE FROM feedItems WHERE FeedURL = ?`,
+	_, err = tx.ExecContext(ctx,
+		`DELETE FROM feedItems WHERE FeedURL = ?`,
 		feed.URL)
 	if err != nil {
 		return err
@@ -230,7 +228,7 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 	defer stmt.Close()
 
 	for _, item := range feed.Items[:7] {
-		_, err = stmt.Exec(item.Key, feed.URL, item.PermaLink, item.PubDate, item.Title, item.Link)
+		_, err = stmt.ExecContext(ctx, item.Key, feed.URL, item.PermaLink, item.PubDate, item.Title, item.Link)
 		if err != nil {
 			log.Println(item.Key)
 			return err
@@ -240,26 +238,26 @@ func (d *DB) UpdateFeed(feed Feed) (err error) {
 	return nil
 }
 
-func (d *DB) Subscribe(uri string) error {
-	_, err := d.db.Exec("INSERT OR IGNORE INTO feeds (URL) VALUES (?)",
+func (d *DB) Subscribe(ctx context.Context, uri string) error {
+	_, err := d.db.ExecContext(ctx, "INSERT OR IGNORE INTO feeds (URL) VALUES (?)",
 		uri)
 
 	return err
 }
 
-func (d *DB) Unsubscribe(uri string) error {
-	_, err := d.db.Exec("DELETE FROM feedItems WHERE FeedURL = ?", uri)
+func (d *DB) Unsubscribe(ctx context.Context, uri string) error {
+	_, err := d.db.ExecContext(ctx, "DELETE FROM feedItems WHERE FeedURL = ?", uri)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.db.Exec("DELETE FROM feeds WHERE URL = ?", uri)
+	_, err = d.db.ExecContext(ctx, "DELETE FROM feeds WHERE URL = ?", uri)
 
 	return err
 }
 
-func (d *DB) Subscriptions() (list []string, err error) {
-	rows, err := d.db.Query("SELECT URL FROM feeds")
+func (d *DB) Subscriptions(ctx context.Context) (list []string, err error) {
+	rows, err := d.db.QueryContext(ctx, "SELECT URL FROM feeds")
 	if err != nil {
 		return
 	}

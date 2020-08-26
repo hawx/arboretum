@@ -31,14 +31,14 @@ func New(store DB, refresh time.Duration) *Garden {
 	return g
 }
 
-func (g *Garden) Latest() (gardenjs.Garden, error) {
+func (g *Garden) Latest(ctx context.Context) (gardenjs.Garden, error) {
 	garden := gardenjs.Garden{
 		Metadata: gardenjs.Metadata{
 			BuiltAt: time.Now(),
 		},
 	}
 
-	feeds, err := g.db.ReadAll()
+	feeds, err := g.db.ReadAll(ctx)
 	if err != nil {
 		return gardenjs.Garden{}, err
 	}
@@ -72,12 +72,12 @@ func (g *Garden) Latest() (gardenjs.Garden, error) {
 	return garden, nil
 }
 
-func (g *Garden) Subscribe(uri string) error {
+func (g *Garden) Subscribe(ctx context.Context, uri string) error {
 	g.added <- uri
 	return nil
 }
 
-func (g *Garden) Unsubscribe(uri string) error {
+func (g *Garden) Unsubscribe(ctx context.Context, uri string) error {
 	g.removed <- uri
 	return nil
 }

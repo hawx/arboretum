@@ -14,7 +14,7 @@ type ExecuteTemplate interface {
 
 func (garden *Garden) Handler(templates ExecuteTemplate, signedIn bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		latest, err := garden.Latest()
+		latest, err := garden.Latest(r.Context())
 		if err != nil {
 			log.Println("/garden:", err)
 			http.Error(w, "", http.StatusInternalServerError)
