@@ -2,6 +2,7 @@ package garden
 
 import (
 	"context"
+	"time"
 
 	"hawx.me/code/arboretum/internal/data"
 )
@@ -10,6 +11,7 @@ type DB interface {
 	Read(ctx context.Context, uri string) (data.Feed, error)
 	ReadAll(context.Context) ([]data.Feed, error)
 	UpdateFeed(context.Context, data.Feed) error
+	Fetched(context.Context, string, time.Time, int, error) error
 }
 
 type dbWrapper struct {

@@ -2,6 +2,7 @@ package garden
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -14,29 +15,31 @@ import (
 	"hawx.me/code/riviera/river/mapping"
 )
 
+const userAgent = "arboretum golang"
+
 type Feed struct {
-	uri    *url.URL
-	feed   *feed.Feed
-	client *http.Client
-	db     DB
-	ctx    context.Context
+	uri     *url.URL
+	client  *http.Client
+	db      DB
+	refresh time.Duration
+
+	ctx        context.Context
+	lastUpdate time.Time
+	lastETag   string
 }
 
-func NewFeed(db DB, cacheTimeout time.Duration, uri string) (*Feed, error) {
+func NewFeed(db DB, refresh time.Duration, uri string) (*Feed, error) {
 	parsedURI, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &Feed{
-		uri:    parsedURI,
-		client: http.DefaultClient,
-		db:     db,
-	}
-
-	f.feed = feed.New(cacheTimeout, f.itemHandler, &dbWrapper{db: db, uri: uri})
-
-	return f, nil
+	return &Feed{
+		uri:     parsedURI,
+		client:  http.DefaultClient,
+		db:      db,
+		refresh: refresh,
+	}, nil
 }
 
 func (f *Feed) Run(ctx context.Context) {
@@ -45,7 +48,7 @@ func (f *Feed) Run(ctx context.Context) {
 
 	for {
 		select {
-		case <-time.After(f.feed.DurationTillUpdate()):
+		case <-time.After(f.refresh - time.Now().Sub(f.lastUpdate)):
 			f.fetch()
 
 		case <-ctx.Done():
@@ -55,15 +58,94 @@ func (f *Feed) Run(ctx context.Context) {
 }
 
 func (f *Feed) fetch() {
-	log.Printf("started fetching %s\n", f.uri)
-	code, err := f.feed.Fetch(f.uri.String(), f.client, charset.NewReaderLabel)
-	if err != nil {
-		log.Printf("error fetching %s: %d %s\n", f.uri, code, err)
+	status, err := f.doFetch()
+	if err := f.db.Fetched(f.ctx, f.uri.String(), time.Now(), status, err); err != nil {
+		log.Println("could not record fetch:", err)
 	}
-	log.Printf("finished fetching %s: %d\n", f.uri, code)
 }
 
-func (f *Feed) itemHandler(feed *feed.Feed, ch *common.Channel, newitems []*common.Item) {
+func (f *Feed) doFetch() (int, error) {
+	if !f.CanUpdate() {
+		return -1, fmt.Errorf("not ready to fetch: %v", f.uri)
+	}
+
+	req, err := http.NewRequest("GET", f.uri.String(), nil)
+	if err != nil {
+		return -1, fmt.Errorf("creating request for %v: %w", f.uri, err)
+	}
+
+	req.Header.Set("User-Agent", userAgent)
+	if !f.lastUpdate.IsZero() {
+		req.Header.Set("If-Modified-Since", f.lastUpdate.Format(time.RFC1123))
+	}
+	if f.lastETag != "" {
+		req.Header.Set("If-None-Match", f.lastETag)
+	}
+
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return -1, fmt.Errorf("making request for %v: %w", f.uri, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return resp.StatusCode, nil
+	}
+
+	f.lastETag = resp.Header.Get("ETag")
+	f.lastUpdate = time.Now()
+
+	channels, err := feed.Parse(resp.Body, f.uri, charset.NewReaderLabel)
+
+	if err == nil && len(channels) > 0 {
+		for _, channel := range channels {
+			f.handleItems(channel, channel.Items)
+		}
+	}
+
+	return resp.StatusCode, err
+}
+
+// CanUpdate returns true or false depending on whether the CacheTimeout value
+// has expired or not. Additionally, it will ensure that we adhere to the RSS
+// spec's SkipDays and SkipHours values. If this function returns true, you can
+// be sure that a fresh feed update will be performed.
+func (f *Feed) CanUpdate() bool {
+	if f.lastUpdate.IsZero() {
+		return true
+	}
+
+	// Make sure we are not within the specified cache-limit.
+	// This ensures we don't request data too often.
+	utc := time.Now().UTC()
+	if utc.Sub(f.lastUpdate) < f.refresh {
+		return false
+	}
+
+	// // If skipDays or skipHours are set in the RSS feed, use these to see if
+	// // we can update.
+	// if len(f.channels) == 1 && f.format == "rss" {
+	// 	if len(f.channels[0].SkipDays) > 0 {
+	// 		for _, v := range f.channels[0].SkipDays {
+	// 			if time.Weekday(v) == utc.Weekday() {
+	// 				return false
+	// 			}
+	// 		}
+	// 	}
+
+	// 	if len(f.channels[0].SkipHours) > 0 {
+	// 		for _, v := range f.channels[0].SkipHours {
+	// 			if v == utc.Hour() {
+	// 				return false
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	return true
+}
+
+func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
 	if len(newitems) == 0 {
 		return
 	}

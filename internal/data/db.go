@@ -48,15 +48,15 @@ func Open(path string) (*DB, error) {
 func (d *DB) migrate() error {
 	_, err := d.db.Exec(`
     CREATE TABLE IF NOT EXISTS feeds (
-      URL         TEXT PRIMARY KEY,
+      URL         TEXT NOT NULL PRIMARY KEY,
       WebsiteURL  TEXT,
       Title       TEXT,
       UpdatedAt   DATETIME
     );
 
     CREATE TABLE IF NOT EXISTS feedItems (
-      Key       TEXT,
-      FeedURL   TEXT,
+      Key       TEXT NOT NULL,
+      FeedURL   TEXT NOT NULL,
       PermaLink TEXT,
       PubDate   DATETIME,
       Title     TEXT,
@@ -67,7 +67,8 @@ func (d *DB) migrate() error {
     CREATE TABLE IF NOT EXISTS feedFetches (
       FeedURL   TEXT NOT NULL,
       FetchedAt DATETIME NOT NULL,
-      Value     TEXT,
+      Status    NUMBER,
+      Error     TEXT,
       PRIMARY KEY (FeedURL, FetchedAt)
     );
 `)
@@ -273,4 +274,27 @@ func (d *DB) Subscriptions(ctx context.Context) (list []string, err error) {
 
 	err = rows.Err()
 	return
+}
+
+func (d *DB) Fetched(
+	ctx context.Context,
+	feedURL string,
+	fetchedAt time.Time,
+	status int,
+	errIn error,
+) error {
+	errMsg := ""
+	if errIn != nil {
+		errMsg = errIn.Error()
+	}
+
+	_, err := d.db.ExecContext(ctx,
+		`INSERT INTO feedFetches (FeedURL, FetchedAt, Status, Error)
+       VALUES (?, ?, ?, ?)`,
+		feedURL,
+		fetchedAt,
+		status,
+		errMsg)
+
+	return err
 }
