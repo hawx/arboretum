@@ -132,7 +132,7 @@ func main() {
 	defer cancel()
 
 	var (
-		refresh = flag.String("refresh", "15m", "")
+		refresh = flag.String("refresh", "6h", "")
 		private = flag.Bool("private", false, "")
 
 		dbPath = flag.String("db", ":memory:", "")
