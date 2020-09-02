@@ -217,6 +217,9 @@ func main() {
 	http.Handle("/public/", http.StripPrefix("/public",
 		http.FileServer(http.Dir(*webPath+"/static"))))
 
+	http.HandleFunc("/subscriptions.opml", session.Shield(
+		subscriptions.List(db)))
+
 	http.HandleFunc("/remove", session.Shield(
 		subscriptions.Remove(db, garden)))
 
