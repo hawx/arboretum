@@ -66,7 +66,7 @@ func (g *Garden) Latest(ctx context.Context) (gardenjs.Garden, error) {
 	}
 
 	sort.Slice(garden.Feeds, func(i, j int) bool {
-		return garden.Feeds[i].UpdatedAt.Before(garden.Feeds[j].UpdatedAt)
+		return garden.Feeds[i].UpdatedAt.After(garden.Feeds[j].UpdatedAt)
 	})
 
 	return garden, nil
