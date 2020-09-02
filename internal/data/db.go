@@ -169,19 +169,21 @@ func (d *DB) Read(ctx context.Context, uri string) (feed Feed, err error) {
 	return
 }
 
-func (d *DB) UpdatedAt(ctx context.Context, uri string) (updatedAt time.Time, err error) {
+func (d *DB) UpdatedAt(ctx context.Context, uri string) (time.Time, error) {
 	row := d.db.QueryRowContext(ctx,
 		"SELECT UpdatedAt FROM feeds WHERE URL = ?",
 		uri)
 
-	if err = row.Scan(&updatedAt); err != nil {
-		if err == sql.ErrNoRows {
-			return time.Time{}, nil
-		}
-		return updatedAt, fmt.Errorf("scanning feed row: %w", err)
+	var updatedAt *time.Time
+	if err := row.Scan(&updatedAt); err != nil {
+		return time.Time{}, fmt.Errorf("scanning feed row: %w", err)
 	}
 
-	return updatedAt, nil
+	if updatedAt == nil {
+		return time.Time{}, nil
+	}
+
+	return *updatedAt, nil
 }
 
 func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
