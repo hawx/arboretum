@@ -4,7 +4,6 @@ package data
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -170,6 +169,21 @@ func (d *DB) Read(ctx context.Context, uri string) (feed Feed, err error) {
 	return
 }
 
+func (d *DB) UpdatedAt(ctx context.Context, uri string) (updatedAt time.Time, err error) {
+	row := d.db.QueryRowContext(ctx,
+		"SELECT UpdatedAt FROM feeds WHERE URL = ?",
+		uri)
+
+	if err = row.Scan(&updatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return time.Time{}, nil
+		}
+		return updatedAt, fmt.Errorf("scanning feed row: %w", err)
+	}
+
+	return updatedAt, nil
+}
+
 func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 	if len(feed.Items) == 0 {
 		return nil
@@ -196,13 +210,6 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 		return err
 	}
 
-	sort.Slice(feed.Items, func(i, j int) bool {
-		return feed.Items[i].PubDate.After(feed.Items[j].PubDate)
-	})
-	if feed.Items[0].Key == lastKey {
-		return errors.New("no update for " + feed.URL)
-	}
-
 	_, err = tx.ExecContext(ctx,
 		`REPLACE INTO feeds (URL, WebsiteURL, Title, UpdatedAt)
     VALUES (?,   ?,          ?,     ?)`,
@@ -212,6 +219,13 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 		feed.UpdatedAt)
 	if err != nil {
 		return err
+	}
+
+	sort.Slice(feed.Items, func(i, j int) bool {
+		return feed.Items[i].PubDate.After(feed.Items[j].PubDate)
+	})
+	if feed.Items[0].Key == lastKey {
+		return nil
 	}
 
 	_, err = tx.ExecContext(ctx,

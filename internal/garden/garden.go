@@ -91,17 +91,17 @@ func (g *Garden) Run(ctx context.Context) {
 				continue
 			}
 
-			feed, err := NewFeed(g.db, g.refresh, uri)
+			childCtx, cancel := context.WithCancel(ctx)
+			g.feeds[uri] = cancel
+
+			feed, err := NewFeed(childCtx, g.db, g.refresh, uri)
 			if err != nil {
 				log.Printf("error adding %s: %v\n", uri, err)
 				continue
 			}
 
-			childCtx, cancel := context.WithCancel(ctx)
-			g.feeds[uri] = cancel
-
 			go func() {
-				feed.Run(childCtx)
+				feed.Run()
 			}()
 
 		case uri := <-g.removed:

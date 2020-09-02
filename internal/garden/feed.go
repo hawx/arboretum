@@ -28,30 +28,38 @@ type Feed struct {
 	lastETag   string
 }
 
-func NewFeed(db DB, refresh time.Duration, uri string) (*Feed, error) {
+func NewFeed(ctx context.Context, db DB, refresh time.Duration, uri string) (*Feed, error) {
 	parsedURI, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
+	lastUpdate, err := db.UpdatedAt(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Feed{
-		uri:     parsedURI,
-		client:  http.DefaultClient,
-		db:      db,
-		refresh: refresh,
+		uri:        parsedURI,
+		client:     http.DefaultClient,
+		db:         db,
+		refresh:    refresh,
+		ctx:        ctx,
+		lastUpdate: lastUpdate,
 	}, nil
 }
 
-func (f *Feed) Run(ctx context.Context) {
-	f.ctx = ctx
-	f.fetch()
+func (f *Feed) Run() {
+	if f.refresh-time.Now().Sub(f.lastUpdate) <= 0 {
+		f.fetch()
+	}
 
 	for {
 		select {
 		case <-time.After(f.refresh - time.Now().Sub(f.lastUpdate)):
 			f.fetch()
 
-		case <-ctx.Done():
+		case <-f.ctx.Done():
 			return
 		}
 	}
@@ -146,10 +154,6 @@ func (f *Feed) CanUpdate() bool {
 }
 
 func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
-	if len(newitems) == 0 {
-		return
-	}
-
 	items := make([]data.FeedItem, len(newitems))
 
 	for i, item := range newitems {
