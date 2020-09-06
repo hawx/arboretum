@@ -4,7 +4,6 @@ package garden
 import (
 	"context"
 	"log"
-	"sort"
 	"time"
 
 	"hawx.me/code/arboretum/internal/gardenjs"
@@ -64,10 +63,6 @@ func (g *Garden) Latest(ctx context.Context) (gardenjs.Garden, error) {
 
 		garden.Feeds = append(garden.Feeds, mapped)
 	}
-
-	sort.Slice(garden.Feeds, func(i, j int) bool {
-		return garden.Feeds[i].UpdatedAt.After(garden.Feeds[j].UpdatedAt)
-	})
 
 	return garden, nil
 }

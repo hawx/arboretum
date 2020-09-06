@@ -80,12 +80,11 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) ReadAll(ctx context.Context) ([]Feed, error) {
-	rows, err := d.db.QueryContext(ctx, `SELECT
-                                         i.Key, i.PermaLink, i.PubDate, i.Title, i.Link,
-                                         f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
-                                       FROM feedItems i
-                                       JOIN feeds f ON f.URL = i.FeedURL
-                                       ORDER BY FeedURL, PubDate DESC`)
+	rows, err := d.db.QueryContext(ctx,
+		`SELECT i.Key, i.PermaLink, i.PubDate, i.Title, i.Link, f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
+     FROM feedItems i
+     JOIN feeds f ON f.URL = i.FeedURL
+     ORDER BY FeedURL, PubDate DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -125,48 +124,11 @@ func (d *DB) ReadAll(ctx context.Context) ([]Feed, error) {
 		return feeds, fmt.Errorf("rows err: %w", err)
 	}
 
+	sort.Slice(feeds, func(i, j int) bool {
+		return feeds[i].UpdatedAt.After(feeds[j].UpdatedAt)
+	})
+
 	return feeds, nil
-}
-
-func (d *DB) Read(ctx context.Context, uri string) (feed Feed, err error) {
-	row := d.db.QueryRowContext(ctx,
-		"SELECT WebsiteURL, Title, UpdatedAt FROM feeds WHERE URL = ? AND WebsiteURL IS NOT NULL",
-		uri)
-
-	feed.URL = uri
-	if err = row.Scan(&feed.WebsiteURL, &feed.Title, &feed.UpdatedAt); err != nil {
-		if err == sql.ErrNoRows {
-			return feed, nil
-		}
-		return feed, fmt.Errorf("scanning feed row: %w", err)
-	}
-
-	rows, err := d.db.QueryContext(ctx,
-		`SELECT Key, PermaLink, PubDate, Title, Link
-    FROM feedItems
-    WHERE FeedURL = ?
-    ORDER BY PubDate DESC
-    LIMIT 7`,
-		uri)
-	if err != nil {
-		return feed, fmt.Errorf("selecting feedItems: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var item FeedItem
-		if err = rows.Scan(&item.Key, &item.PermaLink, &item.PubDate, &item.Title, &item.Link); err != nil {
-			return feed, fmt.Errorf("scanning feedItems row: %w", err)
-		}
-
-		feed.Items = append(feed.Items, item)
-	}
-
-	if err = rows.Err(); err != nil {
-		return feed, fmt.Errorf("rows err: %w", err)
-	}
-
-	return
 }
 
 func (d *DB) UpdatedAt(ctx context.Context, uri string) (time.Time, error) {
@@ -196,10 +158,13 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 		return err
 	}
 	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
+		action := tx.Rollback
+		if err == nil {
+			action = tx.Commit
+		}
+
+		if rerr := action(); rerr != nil {
+			log.Println(rerr)
 		}
 	}()
 
@@ -244,7 +209,11 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 	}
 	defer stmt.Close()
 
-	for _, item := range feed.Items[:7] {
+	if len(feed.Items) > 7 {
+		feed.Items = feed.Items[:7]
+	}
+
+	for _, item := range feed.Items {
 		_, err = stmt.ExecContext(ctx, item.Key, feed.URL, item.PermaLink, item.PubDate, item.Title, item.Link)
 		if err != nil {
 			log.Println(item.Key)
