@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"testing"
 	"time"
@@ -190,67 +189,4 @@ func TestSubscriptions(t *testing.T) {
 
 	sort.Strings(result)
 	assert(result).Equal([]string{"a", "b", "c"})
-}
-
-func TestFetched(t *testing.T) {
-	assert := assert.Wrap(t)
-
-	db, err := Open("file:TestFetched?cache=shared&mode=memory")
-	assert(err).Must.Nil()
-	defer db.Close()
-
-	feedURL := "feed-url"
-	fetchedAt := time.Now()
-	status := 234
-	errIn := errors.New("err-in")
-
-	assert(db.Fetched(context.Background(), feedURL, fetchedAt, status, errIn)).Must.Nil()
-
-	var feedFetchesCount int
-	assert(db.db.QueryRow("SELECT COUNT(1) FROM feedFetches").Scan(&feedFetchesCount)).Must.Nil()
-	assert(feedFetchesCount).Equal(1)
-
-	var result struct {
-		FeedURL   string
-		FetchedAt time.Time
-		Status    int
-		Error     string
-	}
-	assert(db.db.QueryRow("SELECT FeedURL, FetchedAt, Status, Error FROM feedFetches").
-		Scan(&result.FeedURL, &result.FetchedAt, &result.Status, &result.Error)).Must.Nil()
-	assert(result.FeedURL).Equal(feedURL)
-	assert(result.FetchedAt.Unix()).Equal(fetchedAt.Unix())
-	assert(result.Status).Equal(status)
-	assert(result.Error).Equal(errIn.Error())
-}
-
-func TestFetchedNoError(t *testing.T) {
-	assert := assert.Wrap(t)
-
-	db, err := Open("file:TestFetchedNoError?cache=shared&mode=memory")
-	assert(err).Must.Nil()
-	defer db.Close()
-
-	feedURL := "feed-url"
-	fetchedAt := time.Now()
-	status := 234
-
-	assert(db.Fetched(context.Background(), feedURL, fetchedAt, status, nil)).Must.Nil()
-
-	var feedFetchesCount int
-	assert(db.db.QueryRow("SELECT COUNT(1) FROM feedFetches").Scan(&feedFetchesCount)).Must.Nil()
-	assert(feedFetchesCount).Equal(1)
-
-	var result struct {
-		FeedURL   string
-		FetchedAt time.Time
-		Status    int
-		Error     string
-	}
-	assert(db.db.QueryRow("SELECT FeedURL, FetchedAt, Status, Error FROM feedFetches").
-		Scan(&result.FeedURL, &result.FetchedAt, &result.Status, &result.Error)).Must.Nil()
-	assert(result.FeedURL).Equal(feedURL)
-	assert(result.FetchedAt.Unix()).Equal(fetchedAt.Unix())
-	assert(result.Status).Equal(status)
-	assert(result.Error).Equal("")
 }

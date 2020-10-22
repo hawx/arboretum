@@ -62,14 +62,6 @@ func (d *DB) migrate() error {
       Link      TEXT,
       PRIMARY KEY (Key, FeedURL)
     );
-
-    CREATE TABLE IF NOT EXISTS feedFetches (
-      FeedURL   TEXT NOT NULL,
-      FetchedAt DATETIME NOT NULL,
-      Status    NUMBER,
-      Error     TEXT,
-      PRIMARY KEY (FeedURL, FetchedAt)
-    );
 `)
 
 	return err
@@ -259,27 +251,4 @@ func (d *DB) Subscriptions(ctx context.Context) (list []string, err error) {
 
 	err = rows.Err()
 	return
-}
-
-func (d *DB) Fetched(
-	ctx context.Context,
-	feedURL string,
-	fetchedAt time.Time,
-	status int,
-	errIn error,
-) error {
-	errMsg := ""
-	if errIn != nil {
-		errMsg = errIn.Error()
-	}
-
-	_, err := d.db.ExecContext(ctx,
-		`INSERT INTO feedFetches (FeedURL, FetchedAt, Status, Error)
-       VALUES (?, ?, ?, ?)`,
-		feedURL,
-		fetchedAt,
-		status,
-		errMsg)
-
-	return err
 }

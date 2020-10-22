@@ -19,15 +19,13 @@ type Garden struct {
 }
 
 func New(store DB, refresh time.Duration) *Garden {
-	g := &Garden{
+	return &Garden{
 		db:      store,
 		refresh: refresh,
 		feeds:   map[string]context.CancelFunc{},
 		added:   make(chan string),
 		removed: make(chan string),
 	}
-
-	return g
 }
 
 func (g *Garden) Latest(ctx context.Context) (gardenjs.Garden, error) {

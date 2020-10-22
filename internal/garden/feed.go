@@ -67,9 +67,7 @@ func (f *Feed) Run() {
 
 func (f *Feed) fetch() {
 	status, err := f.doFetch()
-	if err := f.db.Fetched(f.ctx, f.uri.String(), time.Now(), status, err); err != nil {
-		log.Println("could not record fetch:", err)
-	}
+	log.Printf("fetched uri=%s status=%d err=%v", f.uri, status, err)
 }
 
 func (f *Feed) doFetch() (int, error) {
