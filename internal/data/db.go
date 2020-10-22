@@ -117,7 +117,7 @@ func (d *DB) ReadAll(ctx context.Context) ([]Feed, error) {
 	}
 
 	sort.Slice(feeds, func(i, j int) bool {
-		return feeds[i].UpdatedAt.After(feeds[j].UpdatedAt)
+		return feeds[i].UpdatedAt.Before(feeds[j].UpdatedAt)
 	})
 
 	return feeds, nil
