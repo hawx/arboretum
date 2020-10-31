@@ -279,7 +279,7 @@ w}
     margin: .2rem .5rem .2rem 0;
 }
 
-.garden li:not(.open) ol li:after {
+.garden li:not(.open) ol li:not(:last-child):after {
     content: '/';
     color: #ddd;
     margin-top: .1rem;
