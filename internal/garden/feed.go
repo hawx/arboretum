@@ -75,6 +75,8 @@ func (f *Feed) doFetch() (int, error) {
 		return -1, fmt.Errorf("not ready to fetch: %v", f.uri)
 	}
 
+	f.lastUpdate = time.Now()
+
 	req, err := http.NewRequest("GET", f.uri.String(), nil)
 	if err != nil {
 		return -1, fmt.Errorf("creating request for %v: %w", f.uri, err)
@@ -99,7 +101,6 @@ func (f *Feed) doFetch() (int, error) {
 	}
 
 	f.lastETag = resp.Header.Get("ETag")
-	f.lastUpdate = time.Now()
 
 	channels, err := feed.Parse(resp.Body, f.uri, charset.NewReaderLabel)
 
