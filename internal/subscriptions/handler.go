@@ -20,7 +20,7 @@ func Add(subs ...interface {
 				log.Println(err)
 			}
 		}
-		log.Println("subscribed to", uri)
+		log.Printf("subscribed uri=%s\n", uri)
 
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
@@ -37,7 +37,7 @@ func Remove(subs ...interface {
 				log.Println(err)
 			}
 		}
-		log.Println("unsubscribed from", uri)
+		log.Printf("unsubscribed uri=%s\n", uri)
 
 		http.Redirect(w, r, "/", http.StatusFound)
 	}

@@ -95,7 +95,7 @@ func (f *Feed) doFetch() (int, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return resp.StatusCode, nil
+		return resp.StatusCode, f.db.SetUpdatedAt(f.ctx, f.uri.String(), time.Now())
 	}
 
 	f.lastETag = resp.Header.Get("ETag")
@@ -180,7 +180,7 @@ func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
 		}
 	}
 
-	log.Println("updating feed", feedURL)
+	log.Printf("updating uri=%s items=%d\n", feedURL, len(items))
 	if err := f.db.UpdateFeed(f.ctx, data.Feed{
 		URL:        feedURL,
 		WebsiteURL: websiteURL,

@@ -123,6 +123,15 @@ func (d *DB) ReadAll(ctx context.Context) ([]Feed, error) {
 	return feeds, nil
 }
 
+func (d *DB) SetUpdatedAt(ctx context.Context, uri string, updatedAt time.Time) error {
+	_, err := d.db.ExecContext(ctx,
+		"UPDATE feeds SET UpdatedAt = ? WHERE URL = ?",
+		updatedAt,
+		uri)
+
+	return err
+}
+
 func (d *DB) UpdatedAt(ctx context.Context, uri string) (time.Time, error) {
 	row := d.db.QueryRowContext(ctx,
 		"SELECT UpdatedAt FROM feeds WHERE URL = ?",

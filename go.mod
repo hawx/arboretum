@@ -20,7 +20,7 @@ require (
 	gopkg.in/fsnotify.v1 v1.4.7
 	hawx.me/code/assert v0.0.0-20200428180912-91e855e32e7d
 	hawx.me/code/indieauth v1.0.1
-	hawx.me/code/indieauth/v2 v2.0.0 // indirect
+	hawx.me/code/indieauth/v2 v2.0.0
 	hawx.me/code/riviera v0.0.0-20200303191407-76f534c21e70
 	hawx.me/code/serve v0.0.0-20190207181551-eb94630184cf
 	willnorris.com/go/microformats v1.1.0

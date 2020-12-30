@@ -25,7 +25,7 @@ func printHelp() {
 
   Arboretum is a feed aggregator.
 
-   --refresh DUR='2h'
+   --refresh DUR='6h'
       Time to refresh feeds after. This is the default used, but if
       advice is given in the feed itself it may be ignored.
 

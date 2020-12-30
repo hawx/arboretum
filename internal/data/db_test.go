@@ -68,7 +68,7 @@ func TestReadAll(t *testing.T) {
 
 	result, err := db.ReadAll(context.Background())
 	assert(err).Must.Nil()
-	assert(result).Equal([]Feed{feed2, feed})
+	assert(result).Equal([]Feed{feed, feed2})
 }
 
 func TestUpdatedAt(t *testing.T) {
@@ -87,6 +87,28 @@ func TestUpdatedAt(t *testing.T) {
 	result, err := db.UpdatedAt(context.Background(), url)
 	assert(err).Nil()
 	assert(result.Unix()).Equal(updatedAt.Unix())
+}
+
+func TestSetUpdatedAt(t *testing.T) {
+	assert := assert.Wrap(t)
+
+	db, err := Open("file:TestUpdatedAt?cache=shared&mode=memory")
+	assert(err).Must.Nil()
+	defer db.Close()
+
+	updatedAt := time.Now().Add(-5 * time.Minute)
+	url := "a url"
+
+	db.db.Exec("INSERT INTO feeds (UpdatedAt, URL) VALUES (?, ?)",
+		updatedAt, url)
+
+	newUpdatedAt := time.Now()
+	err = db.SetUpdatedAt(context.Background(), url, newUpdatedAt)
+	assert(err).Must.Nil()
+
+	result, err := db.UpdatedAt(context.Background(), url)
+	assert(err).Nil()
+	assert(result.Unix()).Equal(newUpdatedAt.Unix())
 }
 
 func TestUpdateFeed(t *testing.T) {
