@@ -15,8 +15,7 @@ import (
 	"hawx.me/code/arboretum/internal/garden"
 	"hawx.me/code/arboretum/internal/signin"
 	"hawx.me/code/arboretum/internal/subscriptions"
-	"hawx.me/code/indieauth"
-	"hawx.me/code/indieauth/sessions"
+	"hawx.me/code/indieauth/v2"
 	"hawx.me/code/riviera/subscriptions/opml"
 	"hawx.me/code/serve"
 )
@@ -162,13 +161,10 @@ func main() {
 		return
 	}
 
-	auth, err := indieauth.Authentication(*url, *url+"/callback")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	session, err := sessions.New(*me, *secret, auth)
+	session, err := indieauth.NewSessions(*secret, &indieauth.Config{
+		ClientID:    *url,
+		RedirectURL: *url + "/callback",
+	})
 	if err != nil {
 		log.Println(err)
 		return
@@ -204,12 +200,26 @@ func main() {
 		return
 	}
 
+	choose := func(a, b http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if response, ok := session.SignedIn(r); ok && response.Me == *me {
+				a.ServeHTTP(w, r)
+			} else {
+				b.ServeHTTP(w, r)
+			}
+		}
+	}
+
+	signedIn := func(a http.Handler) http.HandlerFunc {
+		return choose(a, http.NotFoundHandler())
+	}
+
 	if *private {
-		http.HandleFunc("/", session.Choose(
+		http.HandleFunc("/", choose(
 			garden.Handler(templates, true),
 			signin.Handler(templates)))
 	} else {
-		http.HandleFunc("/", session.Choose(
+		http.HandleFunc("/", choose(
 			garden.Handler(templates, true),
 			garden.Handler(templates, false)))
 	}
@@ -217,18 +227,32 @@ func main() {
 	http.Handle("/public/", http.StripPrefix("/public",
 		http.FileServer(http.Dir(*webPath+"/static"))))
 
-	http.HandleFunc("/subscriptions.opml", session.Shield(
+	http.HandleFunc("/subscriptions.opml", signedIn(
 		subscriptions.List(db)))
 
-	http.HandleFunc("/remove", session.Shield(
+	http.HandleFunc("/remove", signedIn(
 		subscriptions.Remove(db, garden)))
 
-	http.HandleFunc("/add", session.Shield(
+	http.HandleFunc("/add", signedIn(
 		subscriptions.Add(db, garden)))
 
-	http.HandleFunc("/sign-in", session.SignIn())
-	http.HandleFunc("/callback", session.Callback())
-	http.HandleFunc("/sign-out", session.SignOut())
+	http.HandleFunc("/sign-in", func(w http.ResponseWriter, r *http.Request) {
+		if err := session.RedirectToSignIn(w, r, *me); err != nil {
+			log.Println(err)
+		}
+	})
+	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		if err := session.Verify(w, r); err != nil {
+			log.Println(err)
+		}
+		http.Redirect(w, r, "/", http.StatusFound)
+	})
+	http.HandleFunc("/sign-out", func(w http.ResponseWriter, r *http.Request) {
+		if err := session.SignOut(w, r); err != nil {
+			log.Println(err)
+		}
+		http.Redirect(w, r, "/", http.StatusFound)
+	})
 
 	serve.Serve(*port, *socket, http.DefaultServeMux)
 }
