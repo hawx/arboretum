@@ -50,14 +50,18 @@ func NewFeed(ctx context.Context, db DB, refresh time.Duration, uri string) (*Fe
 }
 
 func (f *Feed) Run() {
-	if f.refresh-time.Now().Sub(f.lastUpdate) <= 0 {
-		f.fetch()
-	}
-
 	for {
+		dur := f.refresh - time.Now().Sub(f.lastUpdate)
+		if dur < 0 {
+			dur = 0
+		}
+
+		log.Printf("waiting uri=%s dur=%v\n", f.uri, dur)
+
 		select {
-		case <-time.After(f.refresh - time.Now().Sub(f.lastUpdate)):
+		case <-time.After(dur):
 			f.fetch()
+			f.lastUpdate = time.Now()
 
 		case <-f.ctx.Done():
 			return
@@ -71,12 +75,6 @@ func (f *Feed) fetch() {
 }
 
 func (f *Feed) doFetch() (int, error) {
-	if !f.CanUpdate() {
-		return -1, fmt.Errorf("not ready to fetch: %v", f.uri)
-	}
-
-	f.lastUpdate = time.Now()
-
 	req, err := http.NewRequest("GET", f.uri.String(), nil)
 	if err != nil {
 		return -1, fmt.Errorf("creating request for %v: %w", f.uri, err)
@@ -111,45 +109,6 @@ func (f *Feed) doFetch() (int, error) {
 	}
 
 	return resp.StatusCode, err
-}
-
-// CanUpdate returns true or false depending on whether the CacheTimeout value
-// has expired or not. Additionally, it will ensure that we adhere to the RSS
-// spec's SkipDays and SkipHours values. If this function returns true, you can
-// be sure that a fresh feed update will be performed.
-func (f *Feed) CanUpdate() bool {
-	if f.lastUpdate.IsZero() {
-		return true
-	}
-
-	// Make sure we are not within the specified cache-limit.
-	// This ensures we don't request data too often.
-	utc := time.Now().UTC()
-	if utc.Sub(f.lastUpdate) < f.refresh {
-		return false
-	}
-
-	// // If skipDays or skipHours are set in the RSS feed, use these to see if
-	// // we can update.
-	// if len(f.channels) == 1 && f.format == "rss" {
-	// 	if len(f.channels[0].SkipDays) > 0 {
-	// 		for _, v := range f.channels[0].SkipDays {
-	// 			if time.Weekday(v) == utc.Weekday() {
-	// 				return false
-	// 			}
-	// 		}
-	// 	}
-
-	// 	if len(f.channels[0].SkipHours) > 0 {
-	// 		for _, v := range f.channels[0].SkipHours {
-	// 			if v == utc.Hour() {
-	// 				return false
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	return true
 }
 
 func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
