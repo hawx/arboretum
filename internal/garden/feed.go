@@ -121,6 +121,10 @@ func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
 			converted.Link = maybeResolvedLink(f.uri, converted.Link)
 			converted.PermaLink = maybeResolvedLink(f.uri, converted.PermaLink)
 
+			if converted.Title == "" {
+				converted.Title = "a post"
+			}
+
 			items[i] = data.FeedItem{
 				Key:       item.Key(),
 				PermaLink: converted.PermaLink,
