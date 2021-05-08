@@ -23,35 +23,35 @@ import (
 func printHelp() {
 	fmt.Println(`Usage: arboretum [options]
 
-  Arboretum is a feed aggregator.
+	Arboretum is a feed aggregator.
 
-   --refresh DUR='6h'
-      Time to refresh feeds after. This is the default used, but if
-      advice is given in the feed itself it may be ignored.
+	 --refresh DUR='6h'
+			Time to refresh feeds after. This is the default used, but if
+			advice is given in the feed itself it may be ignored.
 
-   --private
-      Prevent showing any feeds when not signed in.
+	 --private
+			Prevent showing any feeds when not signed in.
 
-   --db PATH=':memory:'
-      Use the sqlitedb file at the given path.
+	 --db PATH=':memory:'
+			Use the sqlitedb file at the given path.
 
-   --url URL='http://localhost:8080/'
-      URL arboretum is hosted at.
+	 --url URL='http://localhost:8080/'
+			URL arboretum is hosted at.
 
-   --secret BASE64
-      Base64 string to use for the cookie secret.
+	 --secret BASE64
+			Base64 string to use for the cookie secret.
 
-   --me URL
-      Your profile URL used for authenticating with IndieAuth.
+	 --me URL
+			Your profile URL used for authenticating with IndieAuth.
 
-   --web PATH='web'
-      Path to the 'web' directory.
+	 --web PATH='web'
+			Path to the 'web' directory.
 
-   --port PORT='8080'
-      Serve on given port.
+	 --port PORT='8080'
+			Serve on given port.
 
-   --socket SOCK
-      Serve at given socket, instead.`)
+	 --socket SOCK
+			Serve at given socket, instead.`)
 }
 
 func addSubs(
@@ -159,6 +159,10 @@ func main() {
 			log.Println("added", n)
 		}
 		return
+	}
+
+	if *me == "" {
+		log.Fatal("--me must be specified")
 	}
 
 	session, err := indieauth.NewSessions(*secret, &indieauth.Config{
