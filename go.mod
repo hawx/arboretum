@@ -13,14 +13,13 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
-	golang.org/x/net v0.0.0-20201224014010-6772e930b67b
-	golang.org/x/text v0.3.3 // indirect
+	golang.org/x/net v0.0.0-20220812174116-3211cb980234
 	golang.org/x/tools v0.0.0-20200626171337-aa94e735be7f // indirect
 	golang.org/x/tools/gopls v0.4.1 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7
 	hawx.me/code/assert v0.0.0-20200428180912-91e855e32e7d
 	hawx.me/code/indieauth v1.0.1
-	hawx.me/code/indieauth/v2 v2.0.0
+	hawx.me/code/indieauth/v2 v2.1.0
 	hawx.me/code/riviera v0.0.0-20200303191407-76f534c21e70
 	hawx.me/code/serve v0.0.0-20190207181551-eb94630184cf
 	willnorris.com/go/microformats v1.1.0
