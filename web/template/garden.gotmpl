@@ -13,7 +13,7 @@
       <ul>
         {{ range .Feeds }}
           <li data-toggled="{{ .URL }}">
-            <a data-toggled="edit" href="/remove?where=garden&url={{ .URL }}" class="remove">🞪</a>
+            <a data-toggled="edit" href="/remove?where=garden&url={{ .URL }}" class="remove">x</a>
             <h2><a href="{{ .WebsiteURL }}">{{ .Title }}</a></h2>
             <time datetime="{{ .UpdatedAt }}">{{ ago .UpdatedAt }}</time>
             <code data-toggled="edit">&lt;{{ .URL }}&gt;</code>

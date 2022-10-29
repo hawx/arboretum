@@ -1,21 +1,66 @@
+:root {
+    /* https://www.colourlovers.com/palette/4654317/V_O_G_U_E_%E2%80%A2_1928 */
+    --a: hsl(13, 74%, 59%);
+    --b: hsl(5, 79%, 38%);
+    --c: hsl(345, 50%, 2%);
+    --d: hsl(46, 26%, 71%);
+    --e: hsl(37, 78%, 89%);
+
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(0 0% 0%);
+    --primary: hsl(220 52% 44%);
+    --secondary: hsl(208 56% 38%);
+    --faint: hsl(0 0% 40%);
+    --fainter: hsl(0 0% 73%);
+    --faintish: hsl(0 0% 47%);
+
+    /* --background: var(--e); */
+    /* --foreground: var(--c); */
+    /* --primary: var(--b); */
+    /* --secondary: var(--a); */
+    /* --faint: hsl(42, 65%, 20%); */
+    /* --faintish: hsl(42, 60%, 33%); */
+    /* --fainter: var(--d); */
+    
+    --monospace: 'Droid Sans Mono', monospace;
+    --sans: 'Signika Negative', Verdana, Geneva, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+
+        --background: var(--c);
+        --foreground: var(--e);
+        --primary: var(--a);
+        --secondary: var(--b);
+        --faint: var(--d);
+        --faintish: hsl(46, 26%, 51%);
+        --fainter: hsl(46, 26%, 11%);
+    }
+
+    body {
+        text-shadow: 1px 1px 2px black;
+    }
+}
+
 html, body {
     margin: 0;
     padding: 0;
 }
 
 body {
-    font: 1em/1.3 Verdana, Geneva, sans-serif;
-    color: #000;
-    background: #fff;
+    font: 1em/1.3 var(--sans);
+    color: var(--foreground);
+    background: var(--background);
 }
 
 a, a:visited {
     text-decoration: none;
-    color: #365da9;
+    color: var(--primary);
 }
 a:hover, a:focus, a:active {
     text-decoration: underline;
-    color: #2a6497;
+    color: var(--secondary);
 }
 
 ul, ol {
@@ -41,7 +86,7 @@ h1 {
 }
 
 h1 a, h1 a:visited {
-    color: #aaa;
+    color: var(--fainter);
 }
 
 nav {
@@ -53,7 +98,7 @@ header ul {
 }
 
 header ul li {
-    color: #aaa;
+    color: var(--faint);
     margin: 0 0 0 1rem;
 }
 
@@ -87,7 +132,7 @@ nav span {
 .river > ul > li {
     clear: both;
     padding: .5rem 0 0;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--fainter);
     margin: 1.1rem 0 0;
 }
 .river h2, .river > ul > li > div > time {
@@ -96,13 +141,13 @@ nav span {
     margin: -1.1rem 0 0;
     font-size: .75rem;
     font-weight: normal;
-    background: #fff;
+    background: var(--foreground);
 }
 
 .river > ul > li > div > time {
     float: right;
     padding: 0 0 0 .5rem;
-    color: #777;
+    color: var(--faintish);
 }
 
 .river ol li {
@@ -126,7 +171,7 @@ nav span {
     clear: both;
     margin: 0 1.5rem 0 0;
     font-size: .6875rem;
-    color: #666;
+    color: var(--faint);
 }
 .river img {
     max-width: 100%;
@@ -144,7 +189,7 @@ form[data-toggled].open {
 
 form {
     margin: 1.5rem auto 0;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fainter);
     padding: 2rem;
     max-width: 21rem;
 }
@@ -203,7 +248,7 @@ button {
     margin-left: -.2rem;
     transition: .1s;
     user-select: none;
-    background: white;
+    background: var(--background);
     padding: .2rem;
 }
 
@@ -218,12 +263,12 @@ button {
 .garden ul > li .remove {
     display: none;
     background: pink;
-    color: white;
+    color: var(--background);
     font-size: .8rem;
     border-radius: 10em;
     padding: .3em;
     text-align: center;
-    line-height: .8rem;
+    line-height: .69rem;
     height: 1em;
     width: 1em;
     margin-left: -.5rem;
@@ -251,7 +296,7 @@ button {
 
 .garden ol:after {
     content: "";
-    background-image: linear-gradient(90deg, transparent, white);
+    background-image: linear-gradient(90deg, transparent, var(--background));
     position: absolute;
     z-index: 999;
     top: 0;
@@ -281,7 +326,7 @@ button {
 
 .garden li:not(.open) ol li:not(:last-child):after {
     content: '/';
-    color: #ddd;
+    color: var(--fainter);
     margin-top: .1rem;
 }
 
@@ -299,11 +344,11 @@ button {
 }
 
 .garden h3 a:visited {
-    color: #333;
+    color: var(--foreground);
 }
 
 .garden time {
-    color: #888;
+    color: var(--faint);
     font-size: .8rem;
 }
 
