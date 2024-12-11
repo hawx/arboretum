@@ -1,18 +1,13 @@
 package garden
 
 import (
-	"io"
 	"log"
 	"net/http"
 
-	"hawx.me/code/arboretum/internal/gardenjs"
+	"hawx.me/code/arboretum/internal/page"
 )
 
-type ExecuteTemplate interface {
-	ExecuteTemplate(io.Writer, string, interface{}) error
-}
-
-func (garden *Garden) Handler(templates ExecuteTemplate, signedIn bool) http.HandlerFunc {
+func (garden *Garden) Handler(signedIn bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		latest, err := garden.Latest(r.Context())
 		if err != nil {
@@ -21,17 +16,7 @@ func (garden *Garden) Handler(templates ExecuteTemplate, signedIn bool) http.Han
 			return
 		}
 
-		type gardenCtx struct {
-			Feeds    []gardenjs.Feed
-			Page     string
-			SignedIn bool
-		}
-
-		if err := templates.ExecuteTemplate(w, "garden.gotmpl", gardenCtx{
-			Feeds:    latest.Feeds,
-			Page:     "garden",
-			SignedIn: signedIn,
-		}); err != nil {
+		if _, err := page.Garden(signedIn, "garden", latest.Feeds).WriteTo(w); err != nil {
 			log.Println("/garden:", err)
 		}
 	}

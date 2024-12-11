@@ -1,18 +1,17 @@
 package signin
 
 import (
-	"io"
 	"log"
 	"net/http"
+
+	"hawx.me/code/arboretum/internal/page"
 )
 
-type ExecuteTemplate interface {
-	ExecuteTemplate(io.Writer, string, interface{}) error
-}
+func Handler() http.HandlerFunc {
+	signInPage := page.SignIn()
 
-func Handler(templates ExecuteTemplate) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := templates.ExecuteTemplate(w, "sign-in.gotmpl", nil); err != nil {
+		if _, err := signInPage.WriteTo(w); err != nil {
 			log.Println("/sign-in:", err)
 		}
 	}

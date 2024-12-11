@@ -5,9 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"html/template"
 	"log"
-	"math"
 	"net/http"
 	"time"
 
@@ -23,35 +21,35 @@ import (
 func printHelp() {
 	fmt.Println(`Usage: arboretum [options]
 
-	Arboretum is a feed aggregator.
+Arboretum is a feed aggregator.
 
-	 --refresh DUR='6h'
-			Time to refresh feeds after. This is the default used, but if
-			advice is given in the feed itself it may be ignored.
+  --refresh DUR='6h'
+    Time to refresh feeds after. This is the default used, but if
+    advice is given in the feed itself it may be ignored.
 
-	 --private
-			Prevent showing any feeds when not signed in.
+  --private
+    Prevent showing any feeds when not signed in.
 
-	 --db PATH=':memory:'
-			Use the sqlitedb file at the given path.
+  --db PATH=':memory:'
+    Use the sqlitedb file at the given path.
 
-	 --url URL='http://localhost:8080/'
-			URL arboretum is hosted at.
+  --url URL='http://localhost:8080/'
+    URL arboretum is hosted at.
 
-	 --secret BASE64
-			Base64 string to use for the cookie secret.
+  --secret BASE64
+    Base64 string to use for the cookie secret.
 
-	 --me URL
-			Your profile URL used for authenticating with IndieAuth.
+  --me URL
+    Your profile URL used for authenticating with IndieAuth.
 
-	 --web PATH='web'
-			Path to the 'web' directory.
+  --web PATH='web'
+    Path to the 'web' directory.
 
-	 --port PORT='8080'
-			Serve on given port.
+  --port PORT='8080'
+    Serve on given port.
 
-	 --socket SOCK
-			Serve at given socket, instead.`)
+  --socket SOCK
+    Serve at given socket, instead.`)
 }
 
 func addSubs(
@@ -74,31 +72,6 @@ func addSubs(
 		}
 	}
 	return nil
-}
-
-func parseTemplates(path string) (*template.Template, error) {
-	return template.New("").Funcs(map[string]interface{}{
-		"ago": func(t time.Time) string {
-			dur := time.Now().Sub(t)
-			if dur < time.Minute {
-				return fmt.Sprintf("%vs", math.Ceil(dur.Seconds()))
-			}
-			if dur < time.Hour {
-				return fmt.Sprintf("%vm", math.Ceil(dur.Minutes()))
-			}
-			if dur < 24*time.Hour {
-				return fmt.Sprintf("%vh", math.Ceil(dur.Hours()))
-			}
-			if dur < 31*24*time.Hour {
-				return fmt.Sprintf("%vd", math.Ceil(dur.Hours()/24))
-			}
-			if dur < 365*24*time.Hour {
-				return fmt.Sprintf("%vM", math.Ceil(dur.Hours()/24/31))
-			}
-
-			return fmt.Sprintf("%vY", math.Ceil(dur.Hours()/24/365))
-		},
-	}).ParseGlob(path + "/template/*.gotmpl")
 }
 
 func importOpml(ctx context.Context, path, dbPath string) (int, error) {
@@ -180,12 +153,6 @@ func main() {
 		return
 	}
 
-	templates, err := parseTemplates(*webPath)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
 	db, err := data.Open(*dbPath)
 	if err != nil {
 		log.Println(err)
@@ -220,12 +187,12 @@ func main() {
 
 	if *private {
 		http.HandleFunc("/", choose(
-			garden.Handler(templates, true),
-			signin.Handler(templates)))
+			garden.Handler(true),
+			signin.Handler()))
 	} else {
 		http.HandleFunc("/", choose(
-			garden.Handler(templates, true),
-			garden.Handler(templates, false)))
+			garden.Handler(true),
+			garden.Handler(false)))
 	}
 
 	http.Handle("/public/", http.StripPrefix("/public",
