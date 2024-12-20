@@ -8,6 +8,7 @@ import (
 	"hawx.me/code/arboretum/internal/gardenjs"
 	"hawx.me/code/lmth"
 	. "hawx.me/code/lmth/elements"
+	"hawx.me/code/lmth/escape"
 )
 
 func Garden(signedIn bool, where string, feeds []gardenjs.Feed) lmth.Node {
@@ -35,22 +36,22 @@ func Garden(signedIn bool, where string, feeds []gardenjs.Feed) lmth.Node {
 			Main(lmth.Attr{"class": "garden"},
 				Ul(lmth.Attr{},
 					lmth.Map(func(feed gardenjs.Feed) lmth.Node {
-						return Li(lmth.Attr{"data-toggled": feed.URL},
-							A(lmth.Attr{"data-toggled": "edit", "href": "/remove?where=garden&url=" + feed.URL, "class": "remove"},
+						return Li(lmth.Attr{"data-toggled": escape.Attr(feed.URL)},
+							A(lmth.Attr{"data-toggled": "edit", "href": "/remove?where=garden&url=" + escape.Query(feed.URL), "class": "remove"},
 								lmth.Text("x"),
 							),
 							H2(lmth.Attr{},
-								A(lmth.Attr{"href": feed.WebsiteURL}, lmth.Text(feed.Title)),
+								A(lmth.Attr{"href": escape.URL(feed.WebsiteURL)}, lmth.Text(feed.Title)),
 							),
 							lmth.Text(" "),
 							Time(lmth.Attr{"datetime": feed.UpdatedAt.Format(time.RFC3339)}, lmth.Text(ago(feed.UpdatedAt))),
 							Code(lmth.Attr{"data-toggled": "edit"}, lmth.Text("<"+feed.URL+">")),
-							Span(lmth.Attr{"class": "toggle", "data-toggle": feed.URL}, lmth.Text("∴")),
+							Span(lmth.Attr{"class": "toggle", "data-toggle": escape.Attr(feed.URL)}, lmth.Text("∴")),
 							Ol(lmth.Attr{},
 								lmth.Map(func(item gardenjs.Item) lmth.Node {
 									return Li(lmth.Attr{},
 										H3(lmth.Attr{},
-											A(lmth.Attr{"href": item.PermaLink}, lmth.Text(item.Title)),
+											A(lmth.Attr{"href": escape.URL(item.PermaLink)}, lmth.Text(item.Title)),
 										),
 										Time(lmth.Attr{"datetime": item.PubDate.Format(time.RFC3339)}, lmth.Text(ago(item.PubDate))),
 									)
