@@ -69,6 +69,8 @@ hawx.me/code/lmth v0.0.0-20241202121619-1765e6dc2153 h1:2WYYfpdThMf3Q9am0d01gZMa
 hawx.me/code/lmth v0.0.0-20241202121619-1765e6dc2153/go.mod h1:MSR5kf+fhgDMcWSjDaUaCc1g1FHrfADcdydt+AkFa0A=
 hawx.me/code/lmth v0.0.0-20241206132153-c89b5fbb98df h1:/rpWqTkPYwnKHpmzV/LHEmFkJN5U753bPVy+fTaMkVE=
 hawx.me/code/lmth v0.0.0-20241206132153-c89b5fbb98df/go.mod h1:MSR5kf+fhgDMcWSjDaUaCc1g1FHrfADcdydt+AkFa0A=
+hawx.me/code/lmth v0.0.0-20250106151649-72af4c31502e h1:DV85uUqHaA+pXu4yRJGL1NojdIRPy5FeYGtyXMbfCGQ=
+hawx.me/code/lmth v0.0.0-20250106151649-72af4c31502e/go.mod h1:MSR5kf+fhgDMcWSjDaUaCc1g1FHrfADcdydt+AkFa0A=
 hawx.me/code/riviera v0.0.0-20200303191407-76f534c21e70 h1:p/gtJI/DqjQRFEl0RL/mjQjCD7f+SWBqAxEIdoIJ5QY=
 hawx.me/code/riviera v0.0.0-20200303191407-76f534c21e70/go.mod h1:ujNhPOeLkQzEyOQulLv9bsWYLLBDz4u08Ar6CiXqhRo=
 hawx.me/code/serve v0.0.0-20190207181551-eb94630184cf h1:8rHeLEfK+pyTPkL/kH5THN2HgtfbuMeHnnneMFijo3Y=

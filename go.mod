@@ -19,7 +19,7 @@ require (
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/yaml.v2 v2.2.4 // indirect
-	hawx.me/code/lmth v0.0.0-20241206132153-c89b5fbb98df // indirect
+	hawx.me/code/lmth v0.0.0-20250106151649-72af4c31502e // indirect
 	willnorris.com/go/microformats v1.1.0 // indirect
 )
 
