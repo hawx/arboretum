@@ -1,7 +1,7 @@
 package signin
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"hawx.me/code/arboretum/internal/page"
@@ -12,7 +12,7 @@ func Handler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := signInPage.WriteTo(w); err != nil {
-			log.Println("/sign-in:", err)
+			slog.Error("sign-in", slog.Any("err", err))
 		}
 	}
 }

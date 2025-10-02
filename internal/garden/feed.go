@@ -3,7 +3,7 @@ package garden
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -51,12 +51,8 @@ func NewFeed(ctx context.Context, db DB, refresh time.Duration, uri string) (*Fe
 
 func (f *Feed) Run() {
 	for {
-		dur := f.refresh - time.Now().Sub(f.lastUpdate)
-		if dur < 0 {
-			dur = 0
-		}
-
-		log.Printf("waiting uri=%s dur=%v\n", f.uri, dur)
+		dur := max(0, f.refresh-time.Now().Sub(f.lastUpdate))
+		slog.Info("waiting", slog.Any("uri", f.uri), slog.Any("dur", dur))
 
 		select {
 		case <-time.After(dur):
@@ -71,7 +67,7 @@ func (f *Feed) Run() {
 
 func (f *Feed) fetch() {
 	status, err := f.doFetch()
-	log.Printf("fetched uri=%s status=%d err=%v", f.uri, status, err)
+	slog.Info("fetched", slog.Any("uri", f.uri), slog.Int("status", status), slog.Any("err", err))
 }
 
 func (f *Feed) doFetch() (int, error) {
@@ -144,7 +140,7 @@ func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
 		}
 	}
 
-	log.Printf("updating uri=%s items=%d\n", feedURL, len(items))
+	slog.Info("updating", slog.String("uri", feedURL), slog.Int("items", len(items)))
 	if err := f.db.UpdateFeed(f.ctx, data.Feed{
 		URL:        feedURL,
 		WebsiteURL: websiteURL,
@@ -152,7 +148,7 @@ func (f *Feed) handleItems(ch *common.Channel, newitems []*common.Item) {
 		UpdatedAt:  time.Now(),
 		Items:      items,
 	}); err != nil {
-		log.Println(err)
+		slog.Error("update feed", slog.Any("err", err))
 	}
 }
 

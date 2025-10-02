@@ -3,7 +3,7 @@ package garden
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"hawx.me/code/arboretum/internal/gardenjs"
@@ -80,7 +80,7 @@ func (g *Garden) Run(ctx context.Context) {
 		select {
 		case uri := <-g.added:
 			if _, ok := g.feeds[uri]; ok {
-				log.Println("already added", uri)
+				slog.Info("already added", slog.String("uri", uri))
 				continue
 			}
 
@@ -89,7 +89,7 @@ func (g *Garden) Run(ctx context.Context) {
 
 			feed, err := NewFeed(childCtx, g.db, g.refresh, uri)
 			if err != nil {
-				log.Printf("error adding %s: %v\n", uri, err)
+				slog.Error("adding", slog.String("uri", uri), slog.Any("err", err))
 				continue
 			}
 
@@ -100,7 +100,7 @@ func (g *Garden) Run(ctx context.Context) {
 		case uri := <-g.removed:
 			cancel, ok := g.feeds[uri]
 			if !ok {
-				log.Println("no such feed", uri)
+				slog.Error("no such feed", slog.Any("uri", uri))
 				continue
 			}
 

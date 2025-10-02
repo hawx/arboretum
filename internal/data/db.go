@@ -5,7 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"sort"
 	"time"
 
@@ -46,22 +46,22 @@ func Open(path string) (*DB, error) {
 
 func (d *DB) migrate() error {
 	_, err := d.db.Exec(`
-    CREATE TABLE IF NOT EXISTS feeds (
-      URL         TEXT NOT NULL PRIMARY KEY,
-      WebsiteURL  TEXT,
-      Title       TEXT,
-      UpdatedAt   DATETIME
-    );
+		CREATE TABLE IF NOT EXISTS feeds (
+			URL         TEXT NOT NULL PRIMARY KEY,
+			WebsiteURL  TEXT,
+			Title       TEXT,
+			UpdatedAt   DATETIME
+		);
 
-    CREATE TABLE IF NOT EXISTS feedItems (
-      Key       TEXT NOT NULL,
-      FeedURL   TEXT NOT NULL,
-      PermaLink TEXT,
-      PubDate   DATETIME,
-      Title     TEXT,
-      Link      TEXT,
-      PRIMARY KEY (Key, FeedURL)
-    );
+		CREATE TABLE IF NOT EXISTS feedItems (
+			Key       TEXT NOT NULL,
+			FeedURL   TEXT NOT NULL,
+			PermaLink TEXT,
+			PubDate   DATETIME,
+			Title     TEXT,
+			Link      TEXT,
+			PRIMARY KEY (Key, FeedURL)
+		);
 `)
 
 	return err
@@ -74,9 +74,9 @@ func (d *DB) Close() error {
 func (d *DB) ReadAll(ctx context.Context) ([]Feed, error) {
 	rows, err := d.db.QueryContext(ctx,
 		`SELECT i.Key, i.PermaLink, i.PubDate, i.Title, i.Link, f.WebsiteURL, f.Title, f.UpdatedAt, f.URL
-     FROM feedItems i
-     JOIN feeds f ON f.URL = i.FeedURL
-     ORDER BY FeedURL, PubDate DESC`)
+		 FROM feedItems i
+		 JOIN feeds f ON f.URL = i.FeedURL
+		 ORDER BY FeedURL, PubDate DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 		}
 
 		if rerr := action(); rerr != nil {
-			log.Println(rerr)
+			slog.Error("completing transaction", slog.Any("err", rerr))
 		}
 	}()
 
@@ -180,7 +180,7 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 
 	_, err = tx.ExecContext(ctx,
 		`REPLACE INTO feeds (URL, WebsiteURL, Title, UpdatedAt)
-    VALUES (?,   ?,          ?,     ?)`,
+		VALUES (?,   ?,          ?,     ?)`,
 		feed.URL,
 		feed.WebsiteURL,
 		feed.Title,
@@ -204,7 +204,7 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 	}
 
 	stmt, err := tx.Prepare(`INSERT INTO feedItems (Key, FeedURL, PermaLink, PubDate, Title, Link)
-                                          VALUES (?,   ?,       ?,         ?,       ?,     ?)`)
+																					VALUES (?,   ?,       ?,         ?,       ?,     ?)`)
 	if err != nil {
 		return err
 	}
@@ -217,8 +217,7 @@ func (d *DB) UpdateFeed(ctx context.Context, feed Feed) (err error) {
 	for _, item := range feed.Items {
 		_, err = stmt.ExecContext(ctx, item.Key, feed.URL, item.PermaLink, item.PubDate, item.Title, item.Link)
 		if err != nil {
-			log.Println(item.Key)
-			return err
+			return fmt.Errorf("%s: %w", item.Key, err)
 		}
 	}
 

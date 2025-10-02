@@ -5,8 +5,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"hawx.me/code/arboretum/internal/data"
@@ -23,33 +24,33 @@ func printHelp() {
 
 Arboretum is a feed aggregator.
 
-  --refresh DUR='6h'
-    Time to refresh feeds after. This is the default used, but if
-    advice is given in the feed itself it may be ignored.
+	--refresh DUR='6h'
+		Time to refresh feeds after. This is the default used, but if
+		advice is given in the feed itself it may be ignored.
 
-  --private
-    Prevent showing any feeds when not signed in.
+	--private
+		Prevent showing any feeds when not signed in.
 
-  --db PATH=':memory:'
-    Use the sqlitedb file at the given path.
+	--db PATH=':memory:'
+		Use the sqlitedb file at the given path.
 
-  --url URL='http://localhost:8080/'
-    URL arboretum is hosted at.
+	--url URL='http://localhost:8080/'
+		URL arboretum is hosted at.
 
-  --secret BASE64
-    Base64 string to use for the cookie secret.
+	--secret BASE64
+		Base64 string to use for the cookie secret.
 
-  --me URL
-    Your profile URL used for authenticating with IndieAuth.
+	--me URL
+		Your profile URL used for authenticating with IndieAuth.
 
-  --web PATH='web'
-    Path to the 'web' directory.
+	--web PATH='web'
+		Path to the 'web' directory.
 
-  --port PORT='8080'
-    Serve on given port.
+	--port PORT='8080'
+		Serve on given port.
 
-  --socket SOCK
-    Serve at given socket, instead.`)
+	--socket SOCK
+		Serve at given socket, instead.`)
 }
 
 func addSubs(
@@ -68,9 +69,10 @@ func addSubs(
 
 	for _, sub := range subs {
 		if err := to.Subscribe(ctx, sub); err != nil {
-			log.Println(err)
+			slog.Error("add subscription", slog.String("sub", sub), slog.Any("err", err))
 		}
 	}
+
 	return nil
 }
 
@@ -80,7 +82,7 @@ func importOpml(ctx context.Context, path, dbPath string) (int, error) {
 		return 0, err
 	}
 
-	log.Println("opening db at", dbPath)
+	slog.Info("opening db", slog.String("path", dbPath))
 	db, err := data.Open(dbPath)
 	if err != nil {
 		return 0, err
@@ -90,7 +92,7 @@ func importOpml(ctx context.Context, path, dbPath string) (int, error) {
 	oks := 0
 	for _, item := range doc.Body.Outline {
 		if err := db.Subscribe(ctx, item.XMLURL); err != nil {
-			log.Printf("error adding %s: %v\n", item.XMLURL, err)
+			slog.Error("add subscription", slog.String("sub", item.XMLURL), slog.Any("err", err))
 		} else {
 			oks++
 		}
@@ -121,21 +123,25 @@ func main() {
 	flag.Usage = func() { printHelp() }
 	flag.Parse()
 
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
+
 	if flag.Arg(0) == "import" {
 		file := flag.Arg(1)
 		fmt.Println("importing ", file)
 
 		n, err := importOpml(ctx, file, *dbPath)
 		if err != nil {
-			log.Println(err)
+			slog.Error("import opml", slog.Any("err", err))
 		} else {
-			log.Println("added", n)
+			slog.Info("import opml", slog.Int("added", n))
 		}
 		return
 	}
 
 	if *me == "" {
-		log.Fatal("--me must be specified")
+		slog.Error("--me must be specified")
+		os.Exit(1)
 	}
 
 	session, err := indieauth.NewSessions(*secret, &indieauth.Config{
@@ -143,19 +149,19 @@ func main() {
 		RedirectURL: *url + "/callback",
 	})
 	if err != nil {
-		log.Println(err)
+		slog.Error("new indieauth session", slog.Any("err", err))
 		return
 	}
 
 	cacheTimeout, err := time.ParseDuration(*refresh)
 	if err != nil {
-		log.Println(err)
+		slog.Error("parse --refresh", slog.Any("err", err))
 		return
 	}
 
 	db, err := data.Open(*dbPath)
 	if err != nil {
-		log.Println(err)
+		slog.Error("open database", slog.Any("err", err))
 		return
 	}
 	defer db.Close()
@@ -166,8 +172,8 @@ func main() {
 		garden.Run(ctx)
 	}()
 
-	if err = addSubs(ctx, db, garden); err != nil {
-		log.Println(err)
+	if err := addSubs(ctx, db, garden); err != nil {
+		slog.Error("add subscriptions", slog.Any("err", err))
 		return
 	}
 
@@ -209,18 +215,18 @@ func main() {
 
 	http.HandleFunc("/sign-in", func(w http.ResponseWriter, r *http.Request) {
 		if err := session.RedirectToSignIn(w, r, *me); err != nil {
-			log.Println(err)
+			slog.Error("sign-in", slog.Any("err", err))
 		}
 	})
 	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		if err := session.Verify(w, r); err != nil {
-			log.Println(err)
+			slog.Error("callback", slog.Any("err", err))
 		}
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 	http.HandleFunc("/sign-out", func(w http.ResponseWriter, r *http.Request) {
 		if err := session.SignOut(w, r); err != nil {
-			log.Println(err)
+			slog.Error("sign-out", slog.Any("err", err))
 		}
 		http.Redirect(w, r, "/", http.StatusFound)
 	})

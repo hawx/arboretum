@@ -3,7 +3,7 @@ package subscriptions
 import (
 	"context"
 	"encoding/xml"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"hawx.me/code/riviera/subscriptions/opml"
@@ -17,10 +17,10 @@ func Add(subs ...interface {
 
 		for _, sub := range subs {
 			if err := sub.Subscribe(r.Context(), uri); err != nil {
-				log.Println(err)
+				slog.Error("add subscription", slog.String("uri", uri), slog.Any("err", err))
 			}
 		}
-		log.Printf("subscribed uri=%s\n", uri)
+		slog.Info("subscribed", slog.String("uri", uri))
 
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
@@ -34,10 +34,10 @@ func Remove(subs ...interface {
 
 		for _, sub := range subs {
 			if err := sub.Unsubscribe(r.Context(), uri); err != nil {
-				log.Println(err)
+				slog.Error("remove subscription", slog.String("uri", uri), slog.Any("err", err))
 			}
 		}
-		log.Printf("unsubscribed uri=%s\n", uri)
+		slog.Info("unsubscribed", slog.String("uri", uri))
 
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
@@ -49,7 +49,7 @@ func List(subs interface {
 	return func(w http.ResponseWriter, r *http.Request) {
 		list, err := subs.Subscriptions(r.Context())
 		if err != nil {
-			log.Println(err)
+			slog.Error("list subscriptions", slog.Any("err", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -72,7 +72,7 @@ func List(subs interface {
 		}
 
 		if err := xml.NewEncoder(w).Encode(data); err != nil {
-			log.Println(err)
+			slog.Error("encode subscriptions to xml", slog.Any("err", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
